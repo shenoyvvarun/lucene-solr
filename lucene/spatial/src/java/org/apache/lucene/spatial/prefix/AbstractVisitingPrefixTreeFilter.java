@@ -126,9 +126,10 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
 
     protected final boolean hasIndexedLeaves;//if false then we can skip looking for them
 
-    private VNode curVNode;//current pointer, derived from query shape
-    private BytesRef curVNodeTerm = new BytesRef();//curVNode.cell's term, without leaf
+    private Cell curCell;//current pointer, derived from query shape
+    private BytesRef curCellTerm = new BytesRef();//curVNode.cell's term, without leaf
     private Cell scanCell;
+    private CellIterator cellItr;
 
     private BytesRef thisTerm;//the result of termsEnum.term()
 
@@ -139,57 +140,34 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
     }
 
     public DocIdSet getDocIdSet() throws IOException {
-      assert curVNode == null : "Called more than once?";
+      assert curCell == null : "Called more than once?";
       if (termsEnum == null)
         return null;
       //advance
       if ((thisTerm = termsEnum.next()) == null)
         return null; // all done
 
-      curVNode = new VNode(null);
-      curVNode.reset(grid.getWorldCell());
-
+      cellItr = grid.getTreeCellIterator(queryShape,detailLevel);
       start();
-
-      addIntersectingChildren();
 
       main: while (thisTerm != null) {//terminates for other reasons too!
 
-        //Advance curVNode pointer
-        if (curVNode.children != null) {
-          //-- HAVE CHILDREN: DESCEND
-          assert curVNode.children.hasNext();//if we put it there then it has something
-          preSiblings(curVNode);
-          curVNode = curVNode.children.next();
-        } else {
-          //-- NO CHILDREN: ADVANCE TO NEXT SIBLING
-          VNode parentVNode = curVNode.parent;
-          while (true) {
-            if (parentVNode == null)
-              break main; // all done
-            if (parentVNode.children.hasNext()) {
-              //advance next sibling
-              curVNode = parentVNode.children.next();
-              break;
-            } else {
-              //reached end of siblings; pop up
-              postSiblings(parentVNode);
-              parentVNode.children = null;//GC
-              parentVNode = parentVNode.parent;
-            }
-          }
+        //Get a cell that matches the query shape using the Iterator
+        if(!cellItr.hasNext()){
+          break main;
         }
+        curCell = cellItr.next();
 
         //Seek to curVNode's cell (or skip if termsEnum has moved beyond)
-        curVNode.cell.getTokenBytesNoLeaf(curVNodeTerm);
-        int compare = thisTerm.compareTo(curVNodeTerm);
+        curCell.getTokenBytesNoLeaf(curCellTerm);
+        int compare = thisTerm.compareTo(curCellTerm);
         if (compare > 0) {
           // leap frog (termsEnum is beyond where we would otherwise seek)
-          assert ! context.reader().terms(fieldName).iterator(null).seekExact(curVNodeTerm) : "should be absent";
+          assert ! context.reader().terms(fieldName).iterator(null).seekExact(curCellTerm) : "should be absent";
         } else {
           if (compare < 0) {
             // Seek !
-            TermsEnum.SeekStatus seekStatus = termsEnum.seekCeil(curVNodeTerm);
+            TermsEnum.SeekStatus seekStatus = termsEnum.seekCeil(curCellTerm);
             if (seekStatus == TermsEnum.SeekStatus.END)
               break; // all done
             thisTerm = termsEnum.term();
@@ -198,7 +176,7 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
             }
           }
           // Visit!
-          boolean descend = visit(curVNode.cell);
+          boolean descend = visit(curCell);
           //advance
           if ((thisTerm = termsEnum.next()) == null)
             break; // all done
@@ -216,7 +194,7 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
      * returns true. */
     private void addIntersectingChildren() throws IOException {
       assert thisTerm != null;
-      Cell cell = curVNode.cell;
+      Cell cell = curCell;
       if (cell.getLevel() >= detailLevel)
         throw new IllegalStateException("Spatial logic error");
 
@@ -225,7 +203,7 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
         //If the next indexed term just adds a leaf marker to cell,
         // then add all of those docs
         scanCell = grid.readCell(thisTerm, scanCell);
-        assert curVNode.cell.isPrefixOf(scanCell) : "missing leaf or descendants";
+        assert curCell.isPrefixOf(scanCell) : "missing leaf or descendants";
         if (scanCell.getLevel() == cell.getLevel() && scanCell.isLeaf()) {
           visitLeaf(scanCell);
           //advance
@@ -241,18 +219,11 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
       //TODO use termsEnum.docFreq() as heuristic
       boolean scan = cell.getLevel() >= prefixGridScanLevel;//simple heuristic
 
-      if (!scan) {
-        //Divide & conquer (ultimately termsEnum.seek())
-
-        Iterator<Cell> subCellsIter = findSubCellsToVisit(cell);
-        if (!subCellsIter.hasNext())//not expected
-          return;
-        curVNode.children = new VNodeCellIterator(subCellsIter, new VNode(curVNode));
-
-      } else {
+      if (scan){
         //Scan (loop of termsEnum.next())
 
         scan(detailLevel);
+        cellItr.remove();
       }
     }
 
@@ -274,10 +245,10 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
      */
     protected void scan(int scanDetailLevel) throws IOException {
       for ( ;
-          thisTerm != null;
-          thisTerm = termsEnum.next()) {
+            thisTerm != null;
+            thisTerm = termsEnum.next()) {
         scanCell = grid.readCell(thisTerm, scanCell);
-        if (!curVNode.cell.isPrefixOf(scanCell))
+        if (!curCell.isPrefixOf(scanCell))
           break;
 
         int termLevel = scanCell.getLevel();
@@ -289,34 +260,6 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
             visitScanned(scanCell);
         }
       }//term loop
-    }
-
-    /** Used for {@link VNode#children}. */
-    private class VNodeCellIterator implements Iterator<VNode> {
-
-      final Iterator<Cell> cellIter;
-      private final VNode vNode;
-
-      VNodeCellIterator(Iterator<Cell> cellIter, VNode vNode) {
-        this.cellIter = cellIter;
-        this.vNode = vNode;
-      }
-
-      @Override
-      public boolean hasNext() {
-        return cellIter.hasNext();
-      }
-
-      @Override
-      public VNode next() {
-        assert hasNext();
-        vNode.reset(cellIter.next());
-        return vNode;
-      }
-
-      @Override
-      public void remove() {//it always removes
-      }
     }
 
     /** Called first to setup things. */
@@ -348,42 +291,6 @@ public abstract class AbstractVisitingPrefixTreeFilter extends AbstractPrefixTre
      */
     protected abstract void visitScanned(Cell cell) throws IOException;
 
-    protected void preSiblings(VNode vNode) throws IOException {
-    }
-
-    protected void postSiblings(VNode vNode) throws IOException {
-    }
   }//class VisitorTemplate
 
-  /**
-   * A visitor node/cell found via the query shape for {@link VisitorTemplate}.
-   * Sometimes these are reset(cell). It's like a LinkedList node but forms a
-   * tree.
-   *
-   * @lucene.internal
-   */
-  protected static class VNode {
-    //Note: The VNode tree adds more code to debug/maintain v.s. a flattened
-    // LinkedList that we used to have. There is more opportunity here for
-    // custom behavior (see preSiblings & postSiblings) but that's not
-    // leveraged yet. Maybe this is slightly more GC friendly.
-
-    final VNode parent;//only null at the root
-    Iterator<VNode> children;//null, then sometimes set, then null
-    Cell cell;//not null (except initially before reset())
-
-    /**
-     * call reset(cell) after to set the cell.
-     */
-    VNode(VNode parent) { // remember to call reset(cell) after
-      this.parent = parent;
-    }
-
-    void reset(Cell cell) {
-      assert cell != null;
-      this.cell = cell;
-      assert children == null;
-    }
-
-  }
 }
