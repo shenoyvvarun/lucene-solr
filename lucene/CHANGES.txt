@@ -129,6 +129,9 @@ New Features
   from Directory. Add Lucene49Codec and Lucene49DocValuesFormat that make
   use of these.  (Robert Muir)
 
+* LUCENE-5743: Add Lucene49NormsFormat, which can compress in some cases
+  such as very short fields.  (Ryan Ernst, Adrien Grand, Robert Muir)
+
 Changes in Backwards Compatibility Policy
 
 * LUCENE-5634: Add reuse argument to IndexableField.tokenStream. This
@@ -257,6 +260,11 @@ Optimizations
 * LUCENE-5721: Monotonic compression doesn't use zig-zag encoding anymore.
   (Robert Muir, Adrien Grand)
 
+* LUCENE-5750: Speed up monotonic addressing for BINARY and SORTED_SET 
+  docvalues. (Robert Muir)
+
+* LUCENE-5751: Speed up MemoryDocValues. (Adrien Grand, Robert Muir)
+
 Bug fixes
 
 * LUCENE-5738: Ensure NativeFSLock prevents opening the file channel for the
@@ -298,6 +306,9 @@ Bug fixes
   IOContext in some cases, causing NRTCachingDirectory to cache
   compound files when it shouldn't, then causing OOMEs.  (Mike
   McCandless)
+
+* LUCENE-5747: Project-specific settings for the eclipse development
+  environment will prevent automatic code reformatting. (Shawn Heisey)
 
 Test Framework
 
