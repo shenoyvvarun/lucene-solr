@@ -35,6 +35,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SortedDocValues;
+import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.store.ByteArrayDataInput;
@@ -290,7 +291,7 @@ class Lucene42DocValuesProducer extends DocValuesProducer {
     final PagedBytes.Reader bytesReader = bytes.freeze(true);
     if (entry.minLength == entry.maxLength) {
       final int fixedLength = entry.minLength;
-      ramBytesUsed.addAndGet(bytes.ramBytesUsed());
+      ramBytesUsed.addAndGet(bytesReader.ramBytesUsed());
       return new BinaryDocValues() {
         @Override
         public BytesRef get(int docID) {
@@ -301,7 +302,7 @@ class Lucene42DocValuesProducer extends DocValuesProducer {
       };
     } else {
       final MonotonicBlockPackedReader addresses = MonotonicBlockPackedReader.of(data, entry.packedIntsVersion, entry.blockSize, maxDoc, false);
-      ramBytesUsed.addAndGet(bytes.ramBytesUsed() + addresses.ramBytesUsed());
+      ramBytesUsed.addAndGet(bytesReader.ramBytesUsed() + addresses.ramBytesUsed());
       return new BinaryDocValues() {
 
         @Override
@@ -489,6 +490,11 @@ class Lucene42DocValuesProducer extends DocValuesProducer {
     } else {
       return new Bits.MatchAllBits(maxDoc);
     }
+  }
+  
+  @Override
+  public SortedNumericDocValues getSortedNumeric(FieldInfo field) throws IOException {
+    throw new IllegalStateException("Lucene 4.2 does not support SortedNumeric: how did you pull this off?");
   }
 
   @Override

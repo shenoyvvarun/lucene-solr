@@ -32,7 +32,6 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.asserting.AssertingDocValuesFormat;
 import org.apache.lucene.codecs.asserting.AssertingPostingsFormat;
 import org.apache.lucene.codecs.bloom.TestBloomFilteredLucene41Postings;
-import org.apache.lucene.codecs.diskdv.DiskDocValuesFormat;
 import org.apache.lucene.codecs.lucene41.Lucene41PostingsFormat;
 import org.apache.lucene.codecs.lucene41ords.Lucene41WithOrds;
 import org.apache.lucene.codecs.lucene41vargap.Lucene41VarGapDocFreqInterval;
@@ -76,6 +75,8 @@ public class RandomCodec extends Lucene49Codec {
   /** unique set of docvalues format names this codec knows about */
   public Set<String> dvFormatNames = new HashSet<>();
 
+  public final Set<String> avoidCodecs;
+
   /** memorized field->postingsformat mappings */
   // note: we have to sync this map even though its just for debugging/toString, 
   // otherwise DWPT's .toString() calls that iterate over the map can 
@@ -118,6 +119,7 @@ public class RandomCodec extends Lucene49Codec {
 
   public RandomCodec(Random random, Set<String> avoidCodecs) {
     this.perFieldSeed = random.nextInt();
+    this.avoidCodecs = avoidCodecs;
     // TODO: make it possible to specify min/max iterms per
     // block via CL:
     int minItemsPerBlock = TestUtil.nextInt(random, 2, 100);
@@ -151,7 +153,6 @@ public class RandomCodec extends Lucene49Codec {
     
     addDocValues(avoidCodecs,
         new Lucene49DocValuesFormat(),
-        new DiskDocValuesFormat(),
         new MemoryDocValuesFormat(),
         new SimpleTextDocValuesFormat(),
         new AssertingDocValuesFormat());

@@ -17,7 +17,16 @@
 
 package org.apache.solr.handler.component;
 
-import static org.apache.solr.common.params.CommonParams.FQ;
+import org.apache.lucene.search.Query;
+import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.params.CommonParams;
+import org.apache.solr.common.params.ModifiableSolrParams;
+import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
+import org.apache.solr.request.SolrQueryRequest;
+import org.apache.solr.search.DocList;
+import org.apache.solr.search.QueryParsing;
+import org.apache.solr.util.SolrPluginUtils;
 
 import java.io.IOException;
 import java.net.URL;
@@ -32,16 +41,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.lucene.search.Query;
-import org.apache.solr.common.SolrDocumentList;
-import org.apache.solr.common.params.CommonParams;
-import org.apache.solr.common.params.ModifiableSolrParams;
-import org.apache.solr.common.util.NamedList;
-import org.apache.solr.common.util.SimpleOrderedMap;
-import org.apache.solr.request.SolrQueryRequest;
-import org.apache.solr.search.DocList;
-import org.apache.solr.search.QueryParsing;
-import org.apache.solr.util.SolrPluginUtils;
+import static org.apache.solr.common.params.CommonParams.FQ;
 
 /**
  * Adds debugging information to a request.
@@ -183,7 +183,7 @@ public class DebugComponent extends SearchComponent
       @SuppressWarnings("unchecked")
       NamedList<Object> stageList = (NamedList<Object>) ((NamedList<Object>)rb.getDebugInfo().get("track")).get(stages.get(rb.stage));
       if(stageList == null) {
-        stageList = new NamedList<>();
+        stageList = new SimpleOrderedMap<>();
         rb.addDebug(stageList, "track", stages.get(rb.stage));
       }
       for(ShardResponse response: sreq.responses) {
@@ -206,6 +206,11 @@ public class DebugComponent extends SearchComponent
 
       for (ShardRequest sreq : rb.finished) {
         for (ShardResponse srsp : sreq.responses) {
+          if (srsp.getException() != null) {
+            // can't expect the debug content if there was an exception for this request
+            // this should only happen when using shards.tolerant=true
+            continue;
+          }
           NamedList sdebug = (NamedList)srsp.getSolrResponse().getResponse().get("debug");
           info = (NamedList)merge(sdebug, info, EXCLUDE_SET);
           if ((sreq.purpose & ShardRequest.PURPOSE_GET_DEBUG) != 0) {
@@ -256,7 +261,11 @@ public class DebugComponent extends SearchComponent
 
 
   private NamedList<String> getTrackResponse(ShardResponse shardResponse) {
-    NamedList<String> namedList = new NamedList<>();
+    NamedList<String> namedList = new SimpleOrderedMap<>();
+    if (shardResponse.getException() != null) {
+      namedList.add("Exception", shardResponse.getException().getMessage());
+      return namedList;
+    }
     NamedList<Object> responseNL = shardResponse.getSolrResponse().getResponse();
     @SuppressWarnings("unchecked")
     NamedList<Object> responseHeader = (NamedList<Object>)responseNL.get("responseHeader");

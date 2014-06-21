@@ -29,7 +29,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Calendar;
 
-public class DateNRStrategyTest extends BaseNonFuzzySpatialOpStrategyTest {
+public class DateNRStrategyTest extends RandomSpatialOpStrategyTestCase {
 
   static final int ITERATIONS = 10;
 
@@ -89,6 +89,15 @@ public class DateNRStrategyTest extends BaseNonFuzzySpatialOpStrategyTest {
         tree.toShape(tree.newCal()),//world matches everything
         SpatialOperation.Contains,
         tree.toShape(randomCalendar()), true);
+  }
+
+  @Test
+  public void testBugInitIterOptimization() throws Exception {
+    //bug due to fast path initIter() optimization
+    testOperation(
+        tree.parseShape("[2014-03-27T23 TO 2014-04-01T01]"),
+        SpatialOperation.Intersects,
+        tree.parseShape("[2014-04 TO 2014-04-01T02]"), true);
   }
 
   @Override

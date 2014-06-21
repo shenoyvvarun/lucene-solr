@@ -272,7 +272,12 @@ public class CoreAdminHandler extends RequestHandlerBase {
           ZkController zkController = coreContainer.getZkController();
           if(zkController != null){
            String op = req.getParams().get("op");
-           if ("rejoin".equals(op)) zkController.rejoinOverseerElection();
+           String electionNode = req.getParams().get("electionNode");
+           if(electionNode != null) {
+             zkController.rejoinOverseerElection(electionNode, "rejoinAtHead".equals(op));
+           } else {
+             log.info("electionNode is required param");
+           }
           }
           break;
         }
@@ -623,28 +628,6 @@ public class CoreAdminHandler extends RequestHandlerBase {
     coreContainer.rename(cname, name);
 
   }
-
-  /**
-   * Handle "ALIAS" action
-   */
-  @Deprecated
-  protected void handleAliasAction(SolrQueryRequest req, SolrQueryResponse rsp) {
-    SolrParams params = req.getParams();
-
-    String name = params.get(CoreAdminParams.OTHER);
-    String cname = params.get(CoreAdminParams.CORE);
-    boolean doPersist = false;
-    if (cname.equals(name)) return;
-
-    SolrCore core = coreContainer.getCore(cname);
-    if (core != null) {
-      doPersist = coreContainer.isPersistent();
-      coreContainer.register(name, core, false);
-      // no core.close() since each entry in the cores map should increase the ref
-    }
-    return;
-  }
-
 
   /**
    * Handle "UNLOAD" Action

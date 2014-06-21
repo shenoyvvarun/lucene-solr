@@ -84,8 +84,20 @@ Other Changes
 * SOLR-5868: HttpClient should be configured to use ALLOW_ALL_HOSTNAME hostname
   verifier to simplify SSL setup. (Steve Davids via Mark Miller)
 
-* SOLR-6015: Better way to handle managed synonyms when ignoreCase=true
-  (Timothy Potter)
+* SOLR-6169: Finish removal of CoreAdminHandler handleAlias action begun in 4.9 
+  (Alan Woodward)
+
+==================  4.10.0 =================
+
+Bug Fixes
+----------------------
+
+* SOLR-6095 : SolrCloud cluster can end up without an overseer with overseer roles (Noble Paul, Shalin Mangar)
+
+Other Changes
+---------------------
+
+* SOLR-6173: Fixed wrong failure message in TestDistributedSearch. (shalin)
 
 ==================  4.9.0 ==================
 
@@ -100,7 +112,11 @@ Apache ZooKeeper 3.4.6
 Upgrading from Solr 4.8
 ----------------------
 
-* placeholder
+* Support for DiskDocValuesFormat (ie: fieldTypes configured with docValuesFormat="Disk") 
+  has been removed due to poor performance.  If you have an existing fieldTypes using 
+  DiskDocValuesFormat please modify your schema.xml to remove the 'docValuesFormat' 
+  attribute, and optimize your index to rewrite it into the default codec, prior to 
+  upgrading to 4.9.  See LUCENE-5761 for more details.
 
 Detailed Change List
 ----------------------
@@ -135,13 +151,26 @@ New Features
 * SOLR-6150: Add new AnalyticsQuery to support pluggable analytics
   (Joel Bernstein)
 
+* SOLR-6125: Allow SolrIndexWriter to close without waiting for merges
+  (Christine Poerschke via Alan Woodward)
+
+* SOLR-6064: DebugComponent track output should be returned as a JSON
+  object rather than a list (Christine Poerschke, Alan Woodward)
+
 
 Bug Fixes
 ----------------------
 
+* SOLR-5956: Use coreDescriptor.getInstanceDir() instead of getRawInstanceDir()
+  in the SnapShooter to avoid problems when solr.solr.home is a symbolic link.
+  (Timothy Potter) 
+
 * SOLR-6002: Fix a couple of ugly issues around SolrIndexWriter close and 
   rollback as well as how SolrIndexWriter manages it's ref counted directory
   instance. (Mark Miller, Gregory Chanan)
+
+* SOLR-6015: Better way to handle managed synonyms when ignoreCase=true
+  (Timothy Potter)
 
 * SOLR-6104: The 'addreplica' Collection API does not support 'async' parameter.
   (shalin)
@@ -172,8 +201,24 @@ Bug Fixes
 * SOLR-6158: Relative configSetBase directories were resolved relative to the 
   container CWD, rather than solr.home. (Simon Endele, Alan Woodward)
 
-* SOLR-6056: Don't publish recovery state until recovery runs to avoid overwhelming
-  the overseer state queue. (Raintung Li, Mark Miller, shalin)
+* SOLR-5426: Fixed a bug in ReverseWildCardFilter that could cause
+  InvalidTokenOffsetsException when highlighting. (Uwe Schindler, Arun Kumar, via hossman)
+
+* SOLR-6175: DebugComponent throws NPE on shard exceptions when using shards.tolerant.
+  (Tomás Fernández Löbbe via shalin)
+
+* SOLR-6129: DateFormatTransformer doesn't resolve dateTimeFormat. (Aaron LaBella via shalin)
+
+* SOLR-6164: Copy Fields Schema additions are not distributed to other nodes.
+  (Gregory Chanan via Steve Rowe)
+
+* SOLR-6160: An error was sometimes possible if a distributed search included grouping
+  with group.facet, faceting on facet.field and either facet.range or facet.query.
+  (David Smiley)
+
+* SOLR-6182: Data stored by the RestManager could not be reloaded after core restart, causing
+  the core to fail to load; cast the data loaded from storage to the correct data type.
+  (Timothy Potter)
 
 Other Changes
 ---------------------
@@ -220,6 +265,21 @@ Other Changes
 
 * SOLR-5940: post.jar reports back detailed error in case of error responses.
   (Sameer Maggon, shalin, Uwe Schindler)
+
+* SOLR-6161: SolrDispatchFilter should throw java.lang.Error back even if wrapped in
+  another exception. (Miklos Christine via shalin)
+
+* SOLR-6153: ReplicationHandler backup response format should contain backup name.
+  (Varun Thacker via shalin)
+
+* SOLR-6169: Remove broken handleAlias action in CoreAdminHandler (Alan
+  Woodward)
+
+* SOLR-6128: Removed deprecated analysis factories and fieldTypes from the example
+  schema.xml (hossman)
+
+* SOLR-6178, LUCENE-5775: Deprecate JaspellLookupFactory. (Uwe Schindler,
+  Mike McCandless)
 
 Optimizations
 ----------------------

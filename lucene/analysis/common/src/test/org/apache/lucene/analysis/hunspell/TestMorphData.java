@@ -1,4 +1,4 @@
-package org.apache.lucene.codecs.diskdv;
+package org.apache.lucene.analysis.hunspell;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -17,16 +17,23 @@ package org.apache.lucene.codecs.diskdv;
  * limitations under the License.
  */
 
-import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.cheapbastard.CheapBastardCodec;
-import org.apache.lucene.index.BaseNormsFormatTestCase;
+import org.junit.BeforeClass;
 
-/** Tests DiskNormsFormat */
-public class TestDiskNormsFormat extends BaseNormsFormatTestCase {
-  private final Codec codec = new CheapBastardCodec();
-
-  @Override
-  protected Codec getCodec() {
-    return codec;
+public class TestMorphData extends StemmerTestBase {
+  
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    init("morphdata.aff", "morphdata.dic");
+  }
+  
+  public void testStemming() {
+    assertStemsTo("feet", "foot");
+    assertStemsTo("feetscratcher", "foot");
+    assertStemsTo("work", "workverb","worknoun");
+    assertStemsTo("works", "workverb","worknoun");
+    assertStemsTo("notspecial", "notspecial");
+    assertStemsTo("simplenoun", "simplenoun");
+    assertStemsTo("simplenouns", "simplenoun");
+    assertStemsTo("simplenounscratcher");
   }
 }

@@ -33,7 +33,6 @@ import org.apache.lucene.codecs.FieldInfosFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.TermVectorsReader;
 import org.apache.lucene.index.FieldInfo.DocValuesType;
-import org.apache.lucene.search.CachingWrapperFilter;
 import org.apache.lucene.store.CompoundFileDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
@@ -41,6 +40,7 @@ import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.CloseableThreadLocal;
 import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.Version;
 
 /**
@@ -52,6 +52,11 @@ import org.apache.lucene.util.Version;
  */
 public final class SegmentReader extends AtomicReader implements Accountable {
 
+  private static final long BASE_RAM_BYTES_USED =
+        RamUsageEstimator.shallowSizeOfInstance(SegmentReader.class)
+      + RamUsageEstimator.shallowSizeOfInstance(SegmentDocValues.class);
+  private static final long LONG_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(Long.class);
+        
   private final SegmentCommitInfo si;
   private final Bits liveDocs;
 
@@ -531,6 +536,27 @@ public final class SegmentReader extends AtomicReader implements Accountable {
       return dv;
     }
   }
+  
+  @Override
+  public SortedNumericDocValues getSortedNumericDocValues(String field) throws IOException {
+    ensureOpen();
+    Map<String,Object> dvFields = docValuesLocal.get();
+
+    Object previous = dvFields.get(field);
+    if (previous != null && previous instanceof SortedNumericDocValues) {
+      return (SortedNumericDocValues) previous;
+    } else {
+      FieldInfo fi = getDVField(field, DocValuesType.SORTED_NUMERIC);
+      if (fi == null) {
+        return null;
+      }
+      DocValuesProducer dvProducer = dvProducersByField.get(field);
+      assert dvProducer != null;
+      SortedNumericDocValues dv = dvProducer.getSortedNumeric(fi);
+      dvFields.put(field, dv);
+      return dv;
+    }
+  }
 
   @Override
   public SortedSetDocValues getSortedSetDocValues(String field) throws IOException {
@@ -574,7 +600,10 @@ public final class SegmentReader extends AtomicReader implements Accountable {
   @Override
   public long ramBytesUsed() {
     ensureOpen();
-    long ramBytesUsed = 0;
+    long ramBytesUsed = BASE_RAM_BYTES_USED;
+    ramBytesUsed += dvGens.size() * LONG_RAM_BYTES_USED;
+    ramBytesUsed += dvProducers.size() * RamUsageEstimator.NUM_BYTES_OBJECT_REF;
+    ramBytesUsed += dvProducersByField.size() * 2 * RamUsageEstimator.NUM_BYTES_OBJECT_REF;
     if (dvProducers != null) {
       for (DocValuesProducer producer : dvProducers) {
         ramBytesUsed += producer.ramBytesUsed();
