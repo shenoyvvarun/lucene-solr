@@ -25,13 +25,8 @@ import com.spatial4j.core.shape.SpatialRelation;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 
-import java.io.PrintStream;
-import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 
 public class FlexPrefixTree2D extends SpatialPrefixTree{
 
@@ -56,56 +51,79 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
   public static final int MAX_LEVELS_POSSIBLE = 50;//not really sure how big this should be
 
   public static final int DEFAULT_MAX_LEVELS = 12;
+
+  public static final int START_CELL_NUMBER = 0x02;
+
+  //The world bounds for the grid
   private final double xmin;
   private final double xmax;
   private final double ymin;
   private final double ymax;
-  private final double xmid;
-  private final double ymid;
 
   private final double gridW;
   public final double gridH;
 
-  final double[] levelW;
+  final double[] levelW; //width of each cell
   final double[] levelH;
-  final int[]    levelS; // side
-  final int[]    levelN; // number
+  final int[] subcellsPerLevel;
 
+  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels) {
-    super(ctx, maxLevels);
+    this(ctx,bounds,maxLevels,null);
+  }
+
+  //Do we need maxlevels? SubcellsPerLevel should be enough
+  //Can we provide a default cell division of 4
+  private FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels,int []subcellsPerLevel) {
+    super(ctx,maxLevels);
+    //Todo remove this
+    //If null is passed divide each level by 4
+    if(subcellsPerLevel==null) {
+      this.subcellsPerLevel = new int[maxLevels+1];
+      for(int i=0;i<=maxLevels;++i){
+        //TODO support odd power of 2
+        // Everything works fine when its even power of 2
+        //eg. 2^4= 16 cells can be configured as 4x4 cells
+        //But, when its 2^3 = 8 cells, we can have either 2x4 or 4x2
+        // Maybe alternate between 2x4 and 4x2 between levels
+        this.subcellsPerLevel[i] = 2;
+      }
+      this.subcellsPerLevel[0] = 4;
+    }else{
+      this.subcellsPerLevel = subcellsPerLevel;
+      assert this.subcellsPerLevel.length > 0 :"The subcells per Level must be greater than 0";
+    }
     this.xmin = bounds.getMinX();
     this.xmax = bounds.getMaxX();
     this.ymin = bounds.getMinY();
     this.ymax = bounds.getMaxY();
 
-    levelW = new double[maxLevels];
-    levelH = new double[maxLevels];
-    levelS = new int[maxLevels];
-    levelN = new int[maxLevels];
+    levelW = new double[maxLevels+1];
+    levelH = new double[maxLevels+1];
 
     gridW = xmax - xmin;
     gridH = ymax - ymin;
-    this.xmid = xmin + gridW/2.0;
-    this.ymid = ymin + gridH/2.0;
-    levelW[0] = gridW/2.0;
-    levelH[0] = gridH/2.0;
-    levelS[0] = 2;
-    levelN[0] = 4;
+    //Fill in the first element
+    int division = this.subcellsPerLevel[0];// This is much much faster than division
+    levelW[0]= gridW/division;
+    levelH[0]=gridH/division;
 
+    //Compute the rest
     for (int i = 1; i < levelW.length; i++) {
-      levelW[i] = levelW[i - 1] / 2.0;
-      levelH[i] = levelH[i - 1] / 2.0;
-      levelS[i] = levelS[i - 1] * 2;
-      levelN[i] = levelN[i - 1] * 4;
+      division = this.subcellsPerLevel[i];
+      levelW[i] = levelW[i - 1] / division;
+      levelH[i] = levelH[i - 1] / division;
     }
   }
 
+  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx) {
     this(ctx, DEFAULT_MAX_LEVELS);
   }
 
+  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx, int maxLevels) {
-    this(ctx, ctx.getWorldBounds(), maxLevels);
+    this(ctx, ctx.getWorldBounds(), maxLevels,null);
   }
 
   @Override
@@ -114,25 +132,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
   }
 
   protected FlexCell[] newCellStack(int levels) {
-    levels++;
     final FlexCell[] cellsByLevel = new FlexCell[levels + 1];
-    final BytesRef term = new BytesRef(levels+1); //For leaf
+    final BytesRef term = new BytesRef(levels+1); //+1 For leaf and this byteRef will be shared within the stack
     for (int level = 0; level <= levels; level++) {
-      cellsByLevel[level] = new FlexCell(cellsByLevel,term.bytes,term.offset,level);
+      cellsByLevel[level] = new FlexCell(cellsByLevel,term,level);
     }
     return cellsByLevel;
-  }
-
-  public void printInfo(PrintStream out) {
-    NumberFormat nf = NumberFormat.getNumberInstance(Locale.ROOT);
-    nf.setMaximumFractionDigits(5);
-    nf.setMinimumFractionDigits(5);
-    nf.setMinimumIntegerDigits(3);
-
-    for (int i = 0; i < maxLevels; i++) {
-      out.println(i + "]\t" + nf.format(levelW[i]) + "\t" + nf.format(levelH[i]) + "\t" +
-          levelS[i] + "\t" + (levelS[i] * levelS[i]));
-    }
   }
 
   @Override
@@ -152,42 +157,43 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
    * Returns the cell containing point {@code p} at the specified {@code level}.
    */
   public Cell getCell(Point p, int level,FlexCell[] cellsByLevel) {
-    List<Cell> cells = new ArrayList<>(1);
-    build(xmid, ymid, 0, cells, new BytesRef(maxLevels+1), ctx.makePoint(p.getX(),p.getY()), level,cellsByLevel);
-    return cells.get(0);//note cells could be longer if p on edge
+    //Since its a point there will be only a single cell match
+    return build(xmin, ymin, 0, new BytesRef(maxLevels+1), ctx.makePoint(p.getX(),p.getY()), level,cellsByLevel);
   }
 
-  private void build(double x,double y,int level,List<Cell> matches,BytesRef str,Shape shape,int maxLevel,FlexCell[] cellsByLevel) {
+  //Given the bottom most corner it recursively checks over all cells at that particular level
+  private Cell build(double x,double y,int level,BytesRef str,Shape shape,int maxLevel,FlexCell[] cellsByLevel) {
     assert str.length == level;
-    double w = levelW[level] / 2;
-    double h = levelH[level] / 2;
-
-    // Z-Order
-    // http://en.wikipedia.org/wiki/Z-order_%28curve%29
-    checkBattenberg((byte)0x02, x - w, y + h, level, matches, str, shape, maxLevel,cellsByLevel);
-    checkBattenberg((byte)0x03, x + w, y + h, level, matches, str, shape, maxLevel,cellsByLevel);
-    checkBattenberg((byte)0x04, x - w, y - h, level, matches, str, shape, maxLevel,cellsByLevel);
-    checkBattenberg((byte)0x05, x + w, y - h, level, matches, str, shape, maxLevel,cellsByLevel);
-
-    // possibly consider hilbert curve
-    // http://en.wikipedia.org/wiki/Hilbert_curve
-    // http://blog.notdot.net/2009/11/Damn-Cool-Algorithms-Spatial-indexing-with-Quadtrees-and-Hilbert-Curves
-    // if we actually use the range property in the query, this could be useful
+    double w = levelW[level];
+    double h = levelH[level];
+    int division = subcellsPerLevel[level];
+    Cell match =null;
+    // A z-ordering which is like an 'N' (a right rotated z)
+    // Not a true Z order, but since we will be implementing Hilbert ordering later, now it will do
+    // Writing this in a recursive manner will do the job
+    cells: for(int i=0;i<division;++i){
+      for(int j=0;j<division;++j){
+        match = checkCellBehaviour((byte) ((i * division + j) + 2), x + (i * w), y + (j * h), level, str, shape, maxLevel, cellsByLevel);
+        if(match != null){
+          break cells;
+        }
+      }
+    }
+    return match;
   }
 
-  private void checkBattenberg(byte c,double cx,double cy,int level,List<Cell> matches,BytesRef str,Shape shape,int maxLevel,FlexCell[] cellsByLevel) {
+  private Cell checkCellBehaviour(byte c, double cx, double cy, int level, BytesRef str, Shape shape, int maxLevel, FlexCell[] cellsByLevel) {
     assert str.length == level;
     assert str.offset == 0;
-    double w = levelW[level] / 2;
-    double h = levelH[level] / 2;
-
+    double w = levelW[level];
+    double h = levelH[level];
+    Cell match=null;
     int strlen = str.length;
-    Rectangle rectangle = ctx.makeRectangle(cx - w, cx + w, cy - h, cy + h);
+    Rectangle rectangle = ctx.makeRectangle(cx,cx+w,cy,cy+h); // TODO reuse shape here
     SpatialRelation v = shape.relate(rectangle);
     if (SpatialRelation.CONTAINS == v) {
       str.bytes[str.length++] = c;//append
-      //str.append(SpatialPrefixGrid.COVER);
-      matches.add(cellsByLevel[level].reuse(BytesRef.deepCopyOf(str), v.transpose()));
+      match = cellsByLevel[level].reuse(str, v.transpose());
     } else if (SpatialRelation.DISJOINT == v) {
       // nothing
     } else { // SpatialRelation.WITHIN, SpatialRelation.INTERSECTS
@@ -195,15 +201,16 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
       int nextLevel = level+1;
       if (nextLevel >= maxLevel) {
-        //str.append(SpatialPrefixGrid.INTERSECTS);
-        matches.add(cellsByLevel[level].reuse(BytesRef.deepCopyOf(str), v.transpose()));
+        match = cellsByLevel[level].reuse(str, v.transpose());
       } else {
-        build(cx, cy, nextLevel, matches, str, shape, maxLevel,cellsByLevel);
+        match = build(cx, cy, nextLevel,  str, shape, maxLevel,cellsByLevel);
       }
     }
     str.length = strlen;
+    return match;
   }
 
+  @Override
   public double getDistanceForLevel(int level) {
     if (level < 1 || level > getMaxLevels())
       throw new IllegalArgumentException("Level must be in 1 to maxLevels range");
@@ -227,38 +234,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     return cell;
   }
 
-  @Override
-  public CellIterator getTreeCellIterator(Shape shape, int detailLevel) {
-    if (!(shape instanceof Point))
-      return super.getTreeCellIterator(shape, detailLevel);
-
-    //This specialization is here because the legacy implementations don't have a fast implementation of
-    // cell.getSubCells(point). It's fastest here to encode the full bytes for detailLevel, and create
-    // subcells from the bytesRef in a loop. This avoids an O(N^2) encode, and we have O(N) instead.
-
-    FlexCell worldCell = (FlexCell)getWorldCell();
-    Cell cell = getCell((Point) shape, detailLevel,worldCell.cellsByLevel);
-    assert !cell.isLeaf() && cell instanceof FlexCell;
-    BytesRef fullBytes = cell.getTokenBytesNoLeaf(null);
-    //fill in reverse order to be sorted
-    Cell[] cells = new Cell[detailLevel];
-    for (int i = 1; i < detailLevel; i++) {
-      fullBytes.length = i;
-      Cell parentCell = readCell(fullBytes, null);
-      cells[i-1] = parentCell;
-    }
-    cells[detailLevel-1] = cell;
-    return new FilterCellIterator(Arrays.asList(cells).iterator(), null);//null filter
-  }
-
-
   public class FlexCell implements Cell {
 
-
-    //Arguably we could simply use a BytesRef, using an extra Object.
-    private byte[] bytes;//generally bigger to potentially hold a leaf
-    private int b_off;
-    private int b_len;//doesn't reflect leaf; same as getLevel()
+    final private int cellLevel;
+    final private BytesRef term;
 
     protected boolean isLeaf;
 
@@ -269,6 +248,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     protected SpatialRelation shapeRel;
 
     protected Shape shape;//cached
+    private boolean isShapeCacheInvalidated=true;
 
     final FlexCell[] cellsByLevel;
 
@@ -276,52 +256,31 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     /** Warning: Refers to the same bytes (no copy). If {@link #setLeaf()} is subsequently called then it
      * may modify bytes. */
-    FlexCell(FlexCell[] cellsByLevel,byte[] bytes, int off, int len) {
+    FlexCell(FlexCell[] cellsByLevel,BytesRef term,int level) {
       super();
       this.cellIterator = new FlexPrefixTreeIterator();
       this.cellsByLevel = cellsByLevel;
-      this.bytes = bytes;
-      this.b_off = off;
-      this.b_len = len;
+      this.term = term;
+      this.cellLevel = level;
       readLeafAdjust();
     }
 
-    FlexCell(FlexCell[] cellsByLevel,BytesRef str, SpatialRelation shapeRel) {
-      this(cellsByLevel,str.bytes, str.offset, str.length);
-      this.shapeRel = shapeRel;
-    }
-
-    private Cell reuse(byte[] bytes, int off, int len) {
-      this.shape =null;
+    private Cell reuse(BytesRef term) {
+      this.isShapeCacheInvalidated=true;
       this.isLeaf = false;
       this.shapeRel = null;
-      this.bytes = bytes;
-      this.b_off = off;
-      this.b_len = len;
+      this.term.copyBytes(term);
       readLeafAdjust();
       return this;
     }
 
-
     protected Cell reuse(BytesRef str, SpatialRelation shapeRel){
-      this.reuse(str.bytes, str.offset, str.length);
+      this.reuse(str);
       this.shapeRel = shapeRel;
       return this;
     }
 
     protected FlexPrefixTree2D getGrid() { return FlexPrefixTree2D.this; }
-
-    /**
-     * Gets the cells at the next grid cell level that covers this cell.
-     * Precondition: Never called when getLevel() == maxLevel.
-     *
-     * @return A set of cells (no dups), sorted, modifiable, not empty, not null.
-     */
-
-    public int getSubCellsSize() {
-      return 4;
-    }
-
 
     /**
      * Performant implementations are expected to implement this efficiently by
@@ -336,34 +295,31 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     @Override
     public Shape getShape() {
-      if (shape == null)
-        shape = makeShape();
+      if(isShapeCacheInvalidated) {
+        isShapeCacheInvalidated=false;
+        makeShape();
+      }
       return shape;
     }
 
-    private Rectangle makeShape() {
+    private void makeShape() {
       BytesRef token = getTokenBytesNoLeaf(null);
       double xmin = FlexPrefixTree2D.this.xmin;
       double ymin = FlexPrefixTree2D.this.ymin;
+      int OverallColNo = 0;
+      int OverallRowNo = 0;
+      int BoundsRowNo = 0;
 
       for (int i = 0; i < token.length; i++) {
-        byte c = token.bytes[token.offset + i];
-        switch (c) {
-          case 0x02:
-            ymin += levelH[i];
-            break;
-          case 0x03:
-            xmin += levelW[i];
-            ymin += levelH[i];
-            break;
-          case 0x04:
-            break;//nothing really
-          case 0x05:
-            xmin += levelW[i];
-            break;
-          default:
-            throw new RuntimeException("unexpected char: " + c);
-        }
+        int c = token.bytes[token.offset + i] -2;
+        int division = subcellsPerLevel[i];
+        int row = (c / division);
+        int col = (c % division);
+        xmin += levelW[i] * row;
+        ymin += levelH[i] * col;
+        OverallColNo += col;
+        OverallRowNo += row;
+        BoundsRowNo += (subcellsPerLevel[i]-1);
       }
       int len = token.length;
       double width, height;
@@ -374,24 +330,40 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         width = gridW;
         height = gridH;
       }
-      return ctx.makeRectangle(xmin, xmin + width, ymin, ymin + height);
+      if(OverallColNo != BoundsRowNo){
+        long temp = Double.doubleToLongBits(width);
+        --temp;
+        width = Double.longBitsToDouble(temp);
+      }
+      if(OverallRowNo != BoundsRowNo){
+        long temp = Double.doubleToLongBits(height);
+        --temp;
+        height = Double.longBitsToDouble(temp);
+      }
+
+      if(shape == null) {
+        shape = ctx.makeRectangle(xmin, xmin + width, ymin, ymin + height);
+      }else{
+        ((Rectangle)shape).reset(xmin, xmin + width, ymin, ymin + height);
+      }
+
     }
 
     private static final byte LEAF_BYTE = 0x01;//NOTE: must sort before letters & numbers
 
     protected void readCell(BytesRef bytes) {
       shapeRel = null;
-      shape = null;
-      this.bytes = bytes.bytes;
-      this.b_off = bytes.offset;
-      this.b_len = bytes.length;
+      this.isShapeCacheInvalidated = true;
+      this.term.bytes = bytes.bytes;
+      this.term.offset = bytes.offset;
+      this.term.length = bytes.length;
       readLeafAdjust();
     }
 
     private void readLeafAdjust() {
-      isLeaf = (b_len > 0 && bytes[b_off + b_len - 1] == LEAF_BYTE);
+      isLeaf = (term.length > 0 && term.bytes[term.offset + term.length - 1] == LEAF_BYTE);
       if (isLeaf)
-        b_len--;
+        term.length--;
     }
 
     @Override
@@ -419,13 +391,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       result = getTokenBytesNoLeaf(result);
       if (!isLeaf)
         return result;
-      if (result.bytes.length < result.offset + result.length + 1) {
-        assert false : "Not supposed to happen; performance bug";
-        byte[] copy = new byte[result.length + 1];
-        System.arraycopy(result.bytes, result.offset, copy, 0, result.length - 1);
-        result.bytes = copy;
-        result.offset = 0;
-      }
       result.bytes[result.offset + result.length++] = LEAF_BYTE;
       return result;
     }
@@ -433,16 +398,20 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     @Override
     public BytesRef getTokenBytesNoLeaf(BytesRef result) {
       if (result == null)
-        return new BytesRef(bytes, b_off, b_len);
-      result.bytes = bytes;
-      result.offset = b_off;
-      result.length = b_len;
+        return BytesRef.deepCopyOf(term);
+      result.bytes = term.bytes;
+      result.length = term.length;
+      result.offset = term.offset;
       return result;
     }
 
     @Override
     public int getLevel() {
-      return b_len;
+      return term.length;
+    }
+
+    private int getCellLevel(){
+      return cellLevel;
     }
 
     @Override
@@ -454,8 +423,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         return new SingletonCellIterator(cell);
       } else {
         BytesRef source = getTokenBytesNoLeaf(null);
-        BytesRef target = new BytesRef();
-        return cellIterator.initIter(source, target, cellsByLevel[getLevel() + 1], shapeFilter, 0x02, 0x05);
+        int endCellNumber = (1<<subcellsPerLevel[getLevel()])+1;
+        return cellIterator.initIter(source, cellsByLevel[getCellLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
       }
     }
 
@@ -463,53 +432,15 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     public boolean isPrefixOf(Cell c) {
       //Note: this only works when each level uses a whole number of bytes.
       FlexCell cell = (FlexCell)c;
-      boolean result = sliceEquals(cell.bytes, cell.b_off, cell.b_len, bytes, b_off, b_len);
+      boolean result = StringHelper.startsWith(cell.term, term);
       assert result == StringHelper.startsWith(c.getTokenBytesNoLeaf(null), getTokenBytesNoLeaf(null));
       return result;
-    }
-
-    /** Copied from {@link org.apache.lucene.util.StringHelper#startsWith(BytesRef, BytesRef)}
-     *  which calls this. This is to avoid creating a BytesRef.  */
-    private boolean sliceEquals(byte[] sliceToTest_bytes, int sliceToTest_offset, int sliceToTest_length,
-                                       byte[] other_bytes, int other_offset, int other_length) {
-      if (sliceToTest_length < other_length) {
-        return false;
-      }
-      int i = sliceToTest_offset;
-      int j = other_offset;
-      final int k = other_offset + other_length;
-
-      while (j < k) {
-        if (sliceToTest_bytes[i++] != other_bytes[j++]) {
-          return false;
-        }
-      }
-
-      return true;
     }
 
     @Override
     public int compareToNoLeaf(Cell fromCell) {
       FlexCell b = (FlexCell) fromCell;
-      return compare(bytes, b_off, b_len, b.bytes, b.b_off, b.b_len);
-    }
-
-    /** Copied from {@link BytesRef#compareTo(BytesRef)}.
-     * This is to avoid creating a BytesRef. */
-    private int compare(byte[] aBytes, int aUpto, int a_length, byte[] bBytes, int bUpto, int b_length) {
-      final int aStop = aUpto + Math.min(a_length, b_length);
-      while(aUpto < aStop) {
-        int aByte = aBytes[aUpto++] & 0xff;
-        int bByte = bBytes[bUpto++] & 0xff;
-
-        int diff = aByte - bByte;
-        if (diff != 0) {
-          return diff;
-        }
-      }
-
-      // One is a prefix of the other, or, they are equal:
-      return a_length - b_length;
+      return b.term.compareTo(term);
     }
 
     @Override
@@ -523,21 +454,18 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       }
     }
 
-    /*@Override
-    public int hashCode() {
-      return getTokenBytesWithLeaf(null).hashCode();
-    }*/
-
     @Override
     public String toString() {
       //this method isn't "normally" called; just in asserts/tests
       return getTokenBytesWithLeaf(null).utf8ToString();
-      }
+    }
 
-  }//QuadCell
+  }
 
   /**
    * An Iterator for FlexCells. This iterator reuses cells at a level and iterates over the siblings
+   * initIter can be used to reuse the cell Iterator
+   * TODO Use hilbert ordering
    */
   private class FlexPrefixTreeIterator extends CellIterator{
 
@@ -548,11 +476,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private FlexCell scratch;
     private Shape shapeFilter;
 
-    protected CellIterator initIter(BytesRef source,BytesRef target,FlexCell scratch,Shape shapeFilter,int start,int end){
+    //Inititalizes the Iterator, so that we can reuse the iterator
+    protected CellIterator initIter(BytesRef source,FlexCell scratch,Shape shapeFilter,int start,int end){
       this.nextCell = null;
       this.thisCell = null;
       this.source = source;
-      this.target = target;
+      this.target = scratch.term;
       this.scratch = scratch;
       this.shapeFilter = shapeFilter;
       this.start = start;
@@ -560,17 +489,18 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return this;
     }
 
+    //Concatenates to the source BytesRef the given byte and places into te target
     private BytesRef concat(BytesRef source, byte b, BytesRef target) {
       assert target.offset == 0;
-      target.bytes = new byte[source.length + 2];//+2 for new char + potential leaf
+      //target.bytes = new byte[source.length + 2];//+2 for new char + potential leaf
       target.length = 0;
       target.copyBytes(source);
       target.bytes[target.length++] = b;
       return target;
     }
 
+    //Populates into scratch the next cell in z-order TODO Hilbert ordering
     private boolean hasNextCell(){
-      //Iterate over the cells
       if(start> end){
         return false;
       }
@@ -593,7 +523,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
           if (rel.intersects()) {
             nextCell.setShapeRel(rel);
             if (rel == SpatialRelation.WITHIN)
-              nextCell.setLeaf();
+              nextCell.setLeaf(); // Since the relation is a within no further decomposition will be required
             return true;
           }
         }
