@@ -286,7 +286,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       BytesRef source = getTokenBytesNoLeaf(null);
       int endCellNumber = (1<<subCellsPerLevel[getLevel()])+1;
       assert cellStack[getLevel()+1] != this: "Overwriting the parent";
-      return cellIterator.initIter(source, cellStack[getLevel() + 1], shapeFilter, 0x02, endCellNumber);
+      return cellIterator.initIter(source, cellStack[getLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
     }
 
     @Override
