@@ -52,6 +52,9 @@ public abstract class SpatialPrefixTreeFactory {
       instance = new GeohashPrefixTree.Factory();
     else if ("quad".equalsIgnoreCase(cname))
       instance = new QuadPrefixTree.Factory();
+    else if("flex".equalsIgnoreCase(cname)){
+      instance = new FlexPrefixTree2D.Factory();
+    }
     else {
       try {
         Class c = classLoader.loadClass(cname);
