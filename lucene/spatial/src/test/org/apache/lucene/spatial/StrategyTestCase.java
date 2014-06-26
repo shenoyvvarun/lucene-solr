@@ -250,4 +250,8 @@ public abstract class StrategyTestCase extends SpatialTestCase {
     deleteAll();//clean up after ourselves
   }
 
+  public void testSomething(){
+
+  }
+
 }

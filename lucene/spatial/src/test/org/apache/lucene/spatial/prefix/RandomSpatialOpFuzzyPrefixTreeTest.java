@@ -34,7 +34,9 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.spatial.StrategyTestCase;
 import org.apache.lucene.spatial.prefix.tree.Cell;
 import org.apache.lucene.spatial.prefix.tree.CellIterator;
+import org.apache.lucene.spatial.prefix.tree.FlexPrefixTree2D;
 import org.apache.lucene.spatial.prefix.tree.GeohashPrefixTree;
+import org.apache.lucene.spatial.prefix.tree.LegacyCell;
 import org.apache.lucene.spatial.prefix.tree.QuadPrefixTree;
 import org.apache.lucene.spatial.prefix.tree.SpatialPrefixTree;
 import org.apache.lucene.spatial.query.SpatialArgs;
@@ -81,7 +83,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
   }
 
   public void setupGrid(int maxLevels) throws IOException {
-    if (randomBoolean())
+    if (true)
       setupQuadGrid(maxLevels);
     else
       setupGeohashGrid(maxLevels);
@@ -89,7 +91,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
     //((PrefixTreeStrategy) strategy).setDistErrPct(0);//fully precise to grid
 
-    ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(randomBoolean());
+    ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(false);
 
     System.out.println("Strategy: " + strategy.toString());
   }
@@ -114,7 +116,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
     //A fairly shallow grid, and default 2.5% distErrPct
     if (maxLevels == -1)
       maxLevels = randomIntBetween(1, 8);//max 64k cells (4^8), also 256*256
-    this.grid = new QuadPrefixTree(ctx, maxLevels);
+    this.grid = new FlexPrefixTree2D(ctx, maxLevels);
     this.strategy = new RecursivePrefixTreeStrategy(grid, getClass().getSimpleName());
   }
 
@@ -366,6 +368,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
         String id = result.getId();
         boolean removed = remainingExpectedIds.remove(id);
         if (!removed && (!opIsDisjoint && !secondaryIds.contains(id))) {
+          System.out.println(indexedShapes.get(id));
           fail("Shouldn't match", id, indexedShapes, indexedShapesGS, queryShape);
         }
       }
@@ -417,7 +420,12 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       Cell cell = cells.next();
       if (!cell.isLeaf())
         continue;
-      cellShapes.add(cell.getShape());
+      if(cell instanceof LegacyCell) {
+        cellShapes.add(cell.getShape());
+      }else{
+        Rectangle rect = (Rectangle)cell.getShape();
+        cellShapes.add(ctx.makeRectangle(rect.getMinX(),rect.getMaxX(),rect.getMinY(),rect.getMaxY()));
+      }
     }
     return new ShapeCollection<>(cellShapes, ctx).getBoundingBox();
   }

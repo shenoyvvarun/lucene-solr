@@ -28,6 +28,7 @@ import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.spatial.prefix.RecursivePrefixTreeStrategy;
 import org.apache.lucene.spatial.prefix.TermQueryPrefixTreeStrategy;
+import org.apache.lucene.spatial.prefix.tree.FlexPrefixTree2D;
 import org.apache.lucene.spatial.prefix.tree.GeohashPrefixTree;
 import org.apache.lucene.spatial.prefix.tree.QuadPrefixTree;
 import org.apache.lucene.spatial.prefix.tree.SpatialPrefixTree;
@@ -58,7 +59,7 @@ public class PortedSolr3Test extends StrategyTestCase {
     strategy = new RecursivePrefixTreeStrategy(grid, "recursive_geohash");
     ctorArgs.add(new Object[]{new Param(strategy)});
 
-    grid = new QuadPrefixTree(ctx,25);
+    grid = new FlexPrefixTree2D(ctx,25);
     strategy = new RecursivePrefixTreeStrategy(grid, "recursive_quad");
     ctorArgs.add(new Object[]{new Param(strategy)});
 

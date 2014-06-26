@@ -22,6 +22,7 @@ import com.spatial4j.core.shape.Shape;
 import org.apache.lucene.spatial.bbox.BBoxStrategy;
 import org.apache.lucene.spatial.prefix.RecursivePrefixTreeStrategy;
 import org.apache.lucene.spatial.prefix.TermQueryPrefixTreeStrategy;
+import org.apache.lucene.spatial.prefix.tree.FlexPrefixTree2D;
 import org.apache.lucene.spatial.prefix.tree.GeohashPrefixTree;
 import org.apache.lucene.spatial.prefix.tree.QuadPrefixTree;
 import org.apache.lucene.spatial.prefix.tree.SpatialPrefixTree;
@@ -42,7 +43,7 @@ public class QueryEqualsHashCodeTest extends LuceneTestCase {
   @Test
   public void testEqualsHashCode() {
 
-    final SpatialPrefixTree gridQuad = new QuadPrefixTree(ctx,10);
+    final SpatialPrefixTree gridQuad = new FlexPrefixTree2D(ctx,10);
     final SpatialPrefixTree gridGeohash = new GeohashPrefixTree(ctx,10);
 
     Collection<SpatialStrategy> strategies = new ArrayList<>();

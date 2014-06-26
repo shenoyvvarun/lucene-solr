@@ -55,7 +55,7 @@ public class RecursivePrefixTreeStrategy extends PrefixTreeStrategy {
 
   //Formerly known as simplifyIndexedCells. Eventually will be removed. Only compatible with RPT
   // and a LegacyPrefixTree.
-  protected boolean pruneLeafyBranches = true;
+  protected boolean pruneLeafyBranches = false;
 
   protected boolean pointsOnly = false;//if true, there are no leaves
 
@@ -94,7 +94,7 @@ public class RecursivePrefixTreeStrategy extends PrefixTreeStrategy {
    * fewer indexed cells. However, it will likely be removed in the future. (default=true)
    */
   public void setPruneLeafyBranches(boolean pruneLeafyBranches) {
-    this.pruneLeafyBranches = pruneLeafyBranches;
+    this.pruneLeafyBranches = false;
   }
 
   @Override

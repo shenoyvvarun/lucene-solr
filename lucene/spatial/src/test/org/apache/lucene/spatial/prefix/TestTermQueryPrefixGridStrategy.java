@@ -24,6 +24,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.spatial.SpatialTestCase;
+import org.apache.lucene.spatial.prefix.tree.FlexPrefixTree2D;
 import org.apache.lucene.spatial.prefix.tree.QuadPrefixTree;
 import org.apache.lucene.spatial.query.SpatialArgsParser;
 import org.junit.Test;
@@ -37,7 +38,7 @@ public class TestTermQueryPrefixGridStrategy extends SpatialTestCase {
   @Test
   public void testNGramPrefixGridLosAngeles() throws IOException {
     SpatialContext ctx = SpatialContext.GEO;
-    TermQueryPrefixTreeStrategy prefixGridStrategy = new TermQueryPrefixTreeStrategy(new QuadPrefixTree(ctx), "geo");
+    TermQueryPrefixTreeStrategy prefixGridStrategy = new TermQueryPrefixTreeStrategy(new FlexPrefixTree2D(ctx), "geo");
 
     Shape point = ctx.makePoint(-118.243680, 34.052230);
 

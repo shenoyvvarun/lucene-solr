@@ -292,11 +292,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         row = (c % division);
         width = width/2;
         if(col != subCellsPerLevel[i]-1){
-          width = Math.nextAfter(width,Double.MIN_VALUE);
+          //width -= Math.ulp(width);
         }
         height = height/2;
         if(row != subCellsPerLevel[i]-1){
-          height = Math.nextAfter(height,Double.MIN_VALUE);
+          //height -= Math.ulp(height);
         }
 
         xmin += width * col;
