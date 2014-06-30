@@ -69,7 +69,7 @@ import static com.spatial4j.core.shape.SpatialRelation.WITHIN;
  * results introduced by grid approximation. */
 public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
-  static final int ITERATIONS = 10;
+  static final int ITERATIONS  =1;
 
   private SpatialPrefixTree grid;
   private SpatialContext ctx2D;
@@ -84,7 +84,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
   public void setupGrid(int maxLevels) throws IOException {
     if (true)
-      setupQuadGrid(maxLevels);
+      setupFlexGrid(maxLevels);
     else
       setupGeohashGrid(maxLevels);
     setupCtx2D(ctx);
@@ -107,6 +107,20 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
   }
 
   private void setupQuadGrid(int maxLevels) {
+    //non-geospatial makes this test a little easier (in gridSnap), and using boundary values 2^X raises
+    // the prospect of edge conditions we want to test, plus makes for simpler numbers (no decimals).
+    SpatialContextFactory factory = new SpatialContextFactory();
+    factory.geo = false;
+    factory.worldBounds = new RectangleImpl(0, 256, -128, 128, null);
+    this.ctx = factory.newSpatialContext();
+    //A fairly shallow grid, and default 2.5% distErrPct
+    if (maxLevels == -1)
+      maxLevels = randomIntBetween(1, 8);//max 64k cells (4^8), also 256*256
+    this.grid = new QuadPrefixTree(ctx, maxLevels);
+    this.strategy = new RecursivePrefixTreeStrategy(grid, getClass().getSimpleName());
+  }
+
+  private void setupFlexGrid(int maxLevels) {
     //non-geospatial makes this test a little easier (in gridSnap), and using boundary values 2^X raises
     // the prospect of edge conditions we want to test, plus makes for simpler numbers (no decimals).
     SpatialContextFactory factory = new SpatialContextFactory();
@@ -315,7 +329,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       }
       final Shape queryShapeGS = gridSnap(queryShape);
 
-      final boolean opIsDisjoint = operation == SpatialOperation.IsDisjointTo;
+      final boolean opIsDisjoint = (operation == SpatialOperation.IsDisjointTo);
 
       //Generate truth via brute force:
       // We ensure true-positive matches (if the predicate on the raw shapes match
@@ -440,15 +454,12 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
   private class ShapePair extends ShapeCollection<Shape> {
 
     final Shape shape1, shape2;
-    final Shape shape1_2D, shape2_2D;//not geo (bit of a hack)
     final boolean biasContainsThenWithin;
 
     public ShapePair(Shape shape1, Shape shape2, boolean containsThenWithin) {
       super(Arrays.asList(shape1, shape2), ctx);
       this.shape1 = shape1;
       this.shape2 = shape2;
-      this.shape1_2D = toNonGeo(shape1);
-      this.shape2_2D = toNonGeo(shape2);
       biasContainsThenWithin = containsThenWithin;
     }
 
@@ -482,25 +493,63 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
       //See if the correct answer is actually Contains, when the indexed shapes are adjacent,
       // creating a larger shape that contains the input shape.
-      boolean pairTouches = shape1.relate(shape2).intersects();
-      if (!pairTouches)
+      if(isAdjacent(other)){
+        return CONTAINS;
+      }else{
         return r;
+      }
+    }
+
+    private boolean isAdjacent(Shape other){
+      SpatialRelation rel = shape1.relate(shape2);
+      boolean pairTouches = rel.intersects();
+      Rectangle rect1 = (Rectangle)shape1;
+      Rectangle rect2 = (Rectangle)shape2;
+      if(!pairTouches){
+        //The new implementation of grid cells have no overlapping edges
+        //Therefore its not as simple as testing for intersection of edges
+        //The gridcells nudge the top and right edges, so un-nudge them
+        double maxX=rect1.getMaxX();
+        double maxY=rect1.getMaxY();
+        Rectangle worldBounds = ctx.getWorldBounds();
+        if(maxX<worldBounds.getMaxX()){
+          maxX = Math.nextAfter(maxX,Double.MAX_VALUE);
+        }
+        if(maxY < worldBounds.getMaxY()){
+          maxY = Math.nextAfter(maxY,Double.MAX_VALUE);
+        }
+        rect1 = ctx.makeRectangle(rect1.getMinX(),maxX,rect1.getMinY(),maxY);
+        maxX = rect2.getMaxX();
+        maxY = rect2.getMaxY();
+        if(maxX<worldBounds.getMaxX()){
+          maxX = Math.nextAfter(maxX,Double.MAX_VALUE);
+        }
+        if(maxY<worldBounds.getMaxY()){
+          maxY = Math.nextAfter(maxY,Double.MAX_VALUE);
+        }
+        rect2 = ctx.makeRectangle(rect2.getMinX(),maxX,rect2.getMinY(),maxY);
+        pairTouches = rect1.relate(rect2).intersects();
+        if(!pairTouches){
+          return false;
+        }
+      }
       //test all 4 corners
       // Note: awkwardly, we use a non-geo context for this because in geo, -180 & +180 are the same place, which means
       //  that "other" might wrap the world horizontally and yet all it's corners could be in shape1 (or shape2) even
       //  though shape1 is only adjacent to the dateline. I couldn't think of a better way to handle this.
       Rectangle oRect = (Rectangle)other;
-      if (cornerContainsNonGeo(oRect.getMinX(), oRect.getMinY())
-          && cornerContainsNonGeo(oRect.getMinX(), oRect.getMaxY())
-          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMinY())
-          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMaxY()) )
-        return CONTAINS;
-      return r;
+      Shape rect1_2d = toNonGeo(rect1);
+      Shape rect2_2d = toNonGeo(rect2);
+      if (cornerContainsNonGeo(oRect.getMinX(), oRect.getMinY(),rect1_2d,rect2_2d)
+          && cornerContainsNonGeo(oRect.getMinX(), oRect.getMaxY(),rect1_2d,rect2_2d)
+          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMinY(),rect1_2d,rect2_2d)
+          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMaxY(),rect1_2d,rect2_2d))
+        return true;
+      return false;
     }
-
-    private boolean cornerContainsNonGeo(double x, double y) {
+    private boolean cornerContainsNonGeo(double x, double y,Shape rect1,Shape rect2) {
       Shape pt = ctx2D.makePoint(x, y);
-      return shape1_2D.relate(pt).intersects() || shape2_2D.relate(pt).intersects();
+      return rect1.relate(pt).intersects() || rect2.relate(pt).intersects();
     }
 
     private SpatialRelation relateApprox(Shape other) {

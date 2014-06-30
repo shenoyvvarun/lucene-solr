@@ -17,6 +17,7 @@ package org.apache.lucene.spatial.prefix.tree;
  * limitations under the License.
  */
 
+import com.carrotsearch.randomizedtesting.annotations.Repeat;
 import com.spatial4j.core.context.SpatialContext;
 import com.spatial4j.core.context.SpatialContextFactory;
 import com.spatial4j.core.shape.Point;
@@ -49,6 +50,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   //TODO plug in others and test them
   private SpatialContext ctx;
   private SpatialPrefixTree trie;
+  final int ITERATIONS = 2000;
 
   @Override
   @Before
@@ -119,9 +121,10 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   }
 
   @Test
+  @Repeat(iterations = ITERATIONS)
   public void testRandomCellRelationship(){
 
-    int maxLevels = randomIntBetween(1,11);
+    int maxLevels = randomIntBetween(1,12);
     SpatialContextFactory ctxFactory = new SpatialContextFactory();
     ctxFactory.geo = false;
     ctxFactory.worldBounds = ctx.getWorldBounds();
@@ -129,36 +132,38 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
     assert ctx!= null;
     trie = new FlexPrefixTree2D(ctx,maxLevels);
     Rectangle WB = ctx.getWorldBounds();
-    Point p = ctx.makePoint(
-        randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()),
-        randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
+    Point p = ctx.makePoint(randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()),randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
     //Get the world Cell
     Cell cell = trie.getWorldCell();
-    CellIterator itr = cell.getNextLevelCells(p);
+    CellIterator itr = cell.getNextLevelCells(null);
 
-    for(int i=0;i<maxLevels && itr.hasNext();++i){
-      //Get the cell that contains the point
-      cell = itr.next();
-      itr = cell.getNextLevelCells(null);
-      Shape parent =  cell.getShape();
-      ArrayList<Shape> cells=  new ArrayList<Shape>();
-      while(itr.hasNext()){
-        Cell c = itr.next();
-        Rectangle s = (Rectangle)c.getShape();
-        cells.add(ctx.makeRectangle(s.getMinX(),s.getMaxX(),s.getMinY(),s.getMaxY()));
+    if(maxLevels>1) {
+      while (true) {
+        //Get the cell that contains the point
+        ArrayList<Shape> cells = new ArrayList<Shape>();
+        Shape parent = cell.getShape();
+        while (itr.hasNext()) {
+          Cell c = itr.next();
+          Rectangle s = (Rectangle) c.getShape();
+          cells.add(ctx.makeRectangle(s.getMinX(), s.getMaxX(), s.getMinY(), s.getMaxY()));
+        }
+        Shape children = (new ShapeCollection<>(cells, ctx)).getBoundingBox();
+        assertTrue(children.equals(parent));
+        itr = cell.getNextLevelCells(p);
+        cell = itr.next();
+        if (cell.getLevel() >= (maxLevels - 2)) {
+          break;
+        }
+        itr = cell.getNextLevelCells(null);
       }
-      Shape children = new ShapeCollection<>(cells,ctx).getBoundingBox();
-      assertTrue(children.equals(parent));
-      itr = cell.getNextLevelCells(p);
-
     }
-
   }
 
   @Test
+  @Repeat(iterations = ITERATIONS)
   public void testRandomEdgeCellIntersectionsCount(){
 
-    int maxLevels = randomIntBetween(1,15);
+    int maxLevels = randomIntBetween(1,12);
     SpatialContextFactory ctxFactory = new SpatialContextFactory();
     ctxFactory.geo = false;
     ctxFactory.worldBounds = ctx.getWorldBounds();
@@ -168,7 +173,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
     Rectangle WB = ctx.getWorldBounds();
     double x = WB.getMaxX();
     double y = WB.getMinY();
-    for(int i=0;i<maxLevels;++i){
+    for(int i=1;i<maxLevels;++i){
       if(randomBoolean()){
         x /= 2; //Since FPT takes power of two
       }
@@ -179,11 +184,12 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
 
     Point p= ctx.makePoint(x,y);
     Cell c = trie.getWorldCell();
-    checkNoOfMatches(p,c);
-    //Check the centre of the grid TODO make it more meaningful and randomised
-    p = ctx.makePoint((WB.getMaxX()+WB.getMinX())/2,(WB.getMaxY()+WB.getMinY())/2);
-    checkNoOfMatches(p,c);
-
+    if(maxLevels>1) {
+      checkNoOfMatches(p, c);
+      //Check the centre of the grid TODO make it more points on the edge of the grid
+      p = ctx.makePoint((WB.getMaxX() + WB.getMinX()) / 2, (WB.getMaxY() + WB.getMinY()) / 2);
+      checkNoOfMatches(p, c);
+    }
   }
 
   private void checkNoOfMatches(Point p,Cell c){
@@ -193,7 +199,6 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
       itr.next();
       ++count;
     }
-    System.out.println(count);
     assertEquals(1,count);
 
   }

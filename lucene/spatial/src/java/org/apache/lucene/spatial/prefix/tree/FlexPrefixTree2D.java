@@ -148,7 +148,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     final FlexCell[] cellsByLevel = new FlexCell[levels + 1];
     final BytesRef term = new BytesRef(levels+1); //+1 For leaf and this byteRef will be shared within the stack
     for (int level = 0; level <= levels; level++) {
-      cellsByLevel[level] = new FlexCell(term,cellsByLevel,level+1);
+      cellsByLevel[level] = new FlexCell(term,cellsByLevel,level);
     }
     return cellsByLevel;
   }
@@ -247,6 +247,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     @Override
     public BytesRef getTokenBytesNoLeaf(BytesRef result) {
+      term.length = cellLevel;
       if (result == null)
         return BytesRef.deepCopyOf(term);
       result.bytes = term.bytes;
@@ -257,7 +258,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     @Override
     public int getLevel() {
-      return term.length;
+      return cellLevel;
     }
 
     @Override
@@ -282,28 +283,35 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       BytesRef token = getTokenBytesNoLeaf(null);
       double xmin = FlexPrefixTree2D.this.xmin;
       double ymin = FlexPrefixTree2D.this.ymin;
-      double width=levelW[0], height=levelH[0];
       int col,row;
+      boolean ancestorsSkippedRow=false;
+      boolean ancestorsSkippedCol=false;
       //Todo avoid this loop by using the parent position and decoding only the bottom cell
-      for (int i = 0; i < token.length; i++) {
-        int c = token.bytes[token.offset + i] -2;
+      for (int i = 1; i <= token.length; i++) {
+        int c = token.bytes[token.offset + i-1] -2;
         int division = subCellsPerLevel[i];
         col = (c / division);
         row = (c % division);
-        width = width/2;
-        if(col != subCellsPerLevel[i]-1){
-          //width -= Math.ulp(width);
+        xmin += levelW[i] * col;
+        ymin += levelH[i] * row;
+        if(row != division-1){
+          ancestorsSkippedRow = true;
         }
-        height = height/2;
-        if(row != subCellsPerLevel[i]-1){
-          //height -= Math.ulp(height);
+        if(col != division-1){
+          ancestorsSkippedCol = true;
         }
-
-        xmin += width * col;
-        ymin += height * row;
       }
-
-      gridRectangle.reset(xmin, xmin + width, ymin, ymin + height);
+      double xmax=xmin+levelW[token.length],ymax=ymin+levelH[token.length];
+      if(token.length!=0) {
+        //If parent has excluded the corner
+        if (ancestorsSkippedRow) {
+          ymax -= Math.ulp(ymax);
+        }
+        if (ancestorsSkippedCol) {
+          xmax -= Math.ulp(xmax);
+        }
+      }
+      gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
 
     @Override
@@ -389,7 +397,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         return true;
       while (hasNextCell()) {
         nextCell = scratch;
-        assert nextCell.getLevel()==source.length+1;
+        assert nextCell.getLevel()==source.length+1: "The nextcell level is "+nextCell.getLevel()+"  source+1 "+(source.length+1);
         if (shapeFilter == null) {
           return true;
         } else {
