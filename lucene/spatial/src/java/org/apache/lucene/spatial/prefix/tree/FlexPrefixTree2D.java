@@ -264,10 +264,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     @Override
     public CellIterator getNextLevelCells(Shape shapeFilter) {
       assert getLevel() < FlexPrefixTree2D.this.getMaxLevels();
-      BytesRef source = getTokenBytesNoLeaf(null);
       int endCellNumber = (1<<subCellsPerLevel[getLevel()])+1;
       assert cellStack[getLevel()+1] != this: "Overwriting the parent";
-      return cellIterator.initIter(source, cellStack[getLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
+      return cellIterator.initIter(cellStack[getLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
     }
 
     @Override
@@ -284,8 +283,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       double xmin = FlexPrefixTree2D.this.xmin;
       double ymin = FlexPrefixTree2D.this.ymin;
       int col,row;
-      boolean ancestorsSkippedRow=false;
-      boolean ancestorsSkippedCol=false;
+      /*boolean ancestorsSkippedRow=false;
+      boolean ancestorsSkippedCol=false;*/
       //Todo avoid this loop by using the parent position and decoding only the bottom cell
       for (int i = 1; i <= token.length; i++) {
         int c = token.bytes[token.offset + i-1] -2;
@@ -294,15 +293,15 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         row = (c % division);
         xmin += levelW[i] * col;
         ymin += levelH[i] * row;
-        if(row != division-1){
+        /*if(row != division-1){
           ancestorsSkippedRow = true;
         }
         if(col != division-1){
           ancestorsSkippedCol = true;
-        }
+        }*/
       }
       double xmax=xmin+levelW[token.length],ymax=ymin+levelH[token.length];
-      if(token.length!=0) {
+      /*if(token.length!=0) {
         //If parent has excluded the corner
         if (ancestorsSkippedRow) {
           ymax -= Math.ulp(ymax);
@@ -310,7 +309,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         if (ancestorsSkippedCol) {
           xmax -= Math.ulp(xmax);
         }
-      }
+      }*/
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
 
@@ -347,7 +346,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
    */
   private class FlexPrefixTreeIterator extends CellIterator{
 
-    private BytesRef source;
     private BytesRef target;
     private int byte_pos;
     private int start;
@@ -356,15 +354,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private Shape shapeFilter;
 
     //Inititalizes the Iterator, so that we can reuse the iterator
-    protected CellIterator initIter(BytesRef source,FlexCell scratch,Shape shapeFilter,int start,int end){
+    protected CellIterator initIter(FlexCell scratch,Shape shapeFilter,int start,int end){
       this.nextCell = null;
       this.thisCell = null;
-      this.source = source;
-      this.target = new BytesRef(source.length+1);
-      this.target.copyBytes(source);
-      this.byte_pos = this.target.length;
-      this.target.length++;
+      this.target = scratch.term;
       this.scratch = scratch;
+      this.byte_pos = this.scratch.term.length; // TODO remove leaf
+      this.scratch.term.length = this.scratch.cellLevel;
       this.shapeFilter = shapeFilter;
       this.start = start;
       this.end = end;
@@ -384,6 +380,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         nextCell=null;
         return false;
       }
+      this.scratch.term.length = this.scratch.cellLevel;
       //We must call this as we want the cell to invalidate its ShapeCache
       scratch.reuse(concat((byte)start));
       ++start;
@@ -397,7 +394,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         return true;
       while (hasNextCell()) {
         nextCell = scratch;
-        assert nextCell.getLevel()==source.length+1: "The nextcell level is "+nextCell.getLevel()+"  source+1 "+(source.length+1);
         if (shapeFilter == null) {
           return true;
         } else {

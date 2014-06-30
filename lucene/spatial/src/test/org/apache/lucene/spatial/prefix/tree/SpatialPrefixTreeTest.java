@@ -50,7 +50,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   //TODO plug in others and test them
   private SpatialContext ctx;
   private SpatialPrefixTree trie;
-  final int ITERATIONS = 2000;
+  final int ITERATIONS = 1000;
 
   @Override
   @Before
@@ -158,7 +158,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
       }
     }
   }
-
+/*
   @Test
   @Repeat(iterations = ITERATIONS)
   public void testRandomEdgeCellIntersectionsCount(){
@@ -201,5 +201,5 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
     }
     assertEquals(1,count);
 
-  }
+  }*/
 }
