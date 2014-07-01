@@ -92,13 +92,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     levelW = new double[maxLevels+1];
     levelH = new double[maxLevels+1];
 
-    double gridW = xmax - xmin;
-    double gridH = ymax - ymin;
-
     //Now we will create a lookup for height and width for levels
-    int division = this.subCellsPerLevel[0];
-    levelW[0]= gridW;
-    levelH[0]= gridH;
+    int division;
+    levelW[0]= xmax - xmin;
+    levelH[0]= ymax - ymin;;
 
     //Compute the rest
     for (int i = 1; i < levelW.length; i++) {
@@ -150,6 +147,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     for (int level = 0; level <= levels; level++) {
       cellsByLevel[level] = new FlexCell(term,cellsByLevel,level);
     }
+    //? The xmin,ymin needs to be set for the top cell. From there its decoded lazily a level at a time
+    cellsByLevel[0].setMinCornerCoordinates(this.xmin,this.ymin);
     return cellsByLevel;
   }
 
@@ -168,13 +167,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     int termLength = term.length;
 
     //We store at cell a cellstack len + leaf bytes
-    //assert term.offset==0;
     termLength -= term.bytes[term.offset+term.length-1] == LEAF_BYTE?1:0;
 
     //Now from the cellstack obtain the correct numbered cell
     FlexCell cells[] = cell.getCellStack();
     cells[termLength].reuse(term);
-    //assert cells[termLength].getLevel() == termLength;
+    cells[termLength].reDecode();
     return cells[termLength];
   }
 
@@ -195,6 +193,14 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private boolean isShapeSet= false;
     private final Rectangle gridRectangle;
 
+    private double xmin;
+    private double ymin;
+
+    protected void setMinCornerCoordinates(double xmin,double ymin){
+      //Set the coordinates of bottom most corner
+      this.xmin = xmin;
+      this.ymin = ymin;
+    }
 
     protected FlexCell(BytesRef term,FlexCell[] cells,int level){
       super();
@@ -265,7 +271,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     public CellIterator getNextLevelCells(Shape shapeFilter) {
       assert getLevel() < FlexPrefixTree2D.this.getMaxLevels();
       int endCellNumber = (1<<subCellsPerLevel[getLevel()])+1;
-      assert cellStack[getLevel()+1] != this: "Overwriting the parent";
       return cellIterator.initIter(cellStack[getLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
     }
 
@@ -278,38 +283,43 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return gridRectangle;
     }
 
-    private void makeShape() {
-      BytesRef token = getTokenBytesNoLeaf(null);
-      double xmin = FlexPrefixTree2D.this.xmin;
-      double ymin = FlexPrefixTree2D.this.ymin;
+    protected void reDecode(){
+      BytesRef token = term;
+      if(token.length == 0){
+        //there is nothing to decode since the term is empty
+        return;
+      }
+      token.length =cellLevel;
+      double xmin = cellStack[0].xmin;
+      double ymin = cellStack[0].ymin;
       int col,row;
-      /*boolean ancestorsSkippedRow=false;
-      boolean ancestorsSkippedCol=false;*/
-      //Todo avoid this loop by using the parent position and decoding only the bottom cell
       for (int i = 1; i <= token.length; i++) {
         int c = token.bytes[token.offset + i-1] -2;
         int division = subCellsPerLevel[i];
         col = (c / division);
-        row = (c % division);
+        row = (c - division*col);
         xmin += levelW[i] * col;
         ymin += levelH[i] * row;
-        /*if(row != division-1){
-          ancestorsSkippedRow = true;
-        }
-        if(col != division-1){
-          ancestorsSkippedCol = true;
-        }*/
+        cellStack[i].setMinCornerCoordinates(xmin,ymin);
+      }
+    }
+
+    private void makeShape() {
+      //Todo Hilbert ordering
+      BytesRef token = term;
+      token.length =cellLevel;
+      if(cellLevel>0) {
+        xmin = cellStack[cellLevel - 1].xmin;
+        ymin = cellStack[cellLevel - 1].ymin;
+        int col, row;
+        int c = token.bytes[token.offset + token.length - 1] - 2;
+        int division = subCellsPerLevel[token.length];
+        col = (c / division);
+        row = (c % division);
+        xmin += levelW[token.length] * col;
+        ymin += levelH[token.length] * row;
       }
       double xmax=xmin+levelW[token.length],ymax=ymin+levelH[token.length];
-      /*if(token.length!=0) {
-        //If parent has excluded the corner
-        if (ancestorsSkippedRow) {
-          ymax -= Math.ulp(ymax);
-        }
-        if (ancestorsSkippedCol) {
-          xmax -= Math.ulp(xmax);
-        }
-      }*/
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
 
@@ -342,14 +352,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
   /**
    * An Iterator for FlexCells. This iterator reuses cells at a level and iterates over the siblings
    * initIter can be used to reuse the cell Iterator
-   * TODO Use hilbert ordering
    */
   private class FlexPrefixTreeIterator extends CellIterator{
 
     private BytesRef target;
     private int byte_pos;
-    private int start;
-    private int end;
+    private int nextCellNumber;
+    private int endCellNumber;
     private FlexCell scratch;
     private Shape shapeFilter;
 
@@ -359,31 +368,33 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.thisCell = null;
       this.target = scratch.term;
       this.scratch = scratch;
-      this.byte_pos = this.scratch.term.length; // TODO remove leaf
+      //Level 0 does not store a byte its byte pos is -1, but, in makeshape this is handled
+      //Level 1 stores its byte at index 0
+      this.byte_pos = this.scratch.cellLevel-1;
       this.scratch.term.length = this.scratch.cellLevel;
       this.shapeFilter = shapeFilter;
-      this.start = start;
-      this.end = end;
+      this.nextCellNumber = start;
+      this.endCellNumber = end;
       return this;
     }
 
     //Concatenates to the source BytesRef the given byte and places into te target
-    private BytesRef concat(byte b) {
+    private void concat(byte b) {
       assert target.offset == 0;
       target.bytes[byte_pos] = b;
-      return target;
     }
 
     //Populates into scratch the next cell in z-order TODO Hilbert ordering
     private boolean hasNextCell(){
-      if(start> end){
+      if(nextCellNumber> endCellNumber){
         nextCell=null;
         return false;
       }
       this.scratch.term.length = this.scratch.cellLevel;
       //We must call this as we want the cell to invalidate its ShapeCache
-      scratch.reuse(concat((byte)start));
-      ++start;
+      concat((byte)nextCellNumber);
+      scratch.reuse(target);
+      ++nextCellNumber;
       return true;
     }
 

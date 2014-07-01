@@ -43,12 +43,14 @@ public class QueryEqualsHashCodeTest extends LuceneTestCase {
   @Test
   public void testEqualsHashCode() {
 
-    final SpatialPrefixTree gridQuad = new FlexPrefixTree2D(ctx,10);
+    final SpatialPrefixTree gridQuad = new QuadPrefixTree(ctx,10);
     final SpatialPrefixTree gridGeohash = new GeohashPrefixTree(ctx,10);
+    final SpatialPrefixTree gridFlex = new FlexPrefixTree2D(ctx,10);
 
     Collection<SpatialStrategy> strategies = new ArrayList<>();
     strategies.add(new RecursivePrefixTreeStrategy(gridGeohash, "recursive_geohash"));
     strategies.add(new TermQueryPrefixTreeStrategy(gridQuad, "termquery_quad"));
+    strategies.add(new TermQueryPrefixTreeStrategy(gridFlex, "termquery_flex"));
     strategies.add(new PointVectorStrategy(ctx, "pointvector"));
     strategies.add(new BBoxStrategy(ctx, "bbox"));
     strategies.add(new SerializedDVStrategy(ctx, "serialized"));

@@ -69,7 +69,7 @@ import static com.spatial4j.core.shape.SpatialRelation.WITHIN;
  * results introduced by grid approximation. */
 public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
-  static final int ITERATIONS  =1000;
+  static final int ITERATIONS  =10000;
 
   private SpatialPrefixTree grid;
   private SpatialContext ctx2D;
@@ -83,16 +83,19 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
   }
 
   public void setupGrid(int maxLevels) throws IOException {
-    if (true)
-      setupFlexGrid(maxLevels);
-    else
-      setupGeohashGrid(maxLevels);
+    switch(randomIntBetween(1,3)) {
+      case 1: setupFlexGrid(maxLevels);
+              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(false);
+              break;
+      case 2: setupQuadGrid(maxLevels);
+              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(randomBoolean());
+              break;
+      case 3: setupGeohashGrid(maxLevels);
+              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(randomBoolean());
+              break;
+    }
     setupCtx2D(ctx);
-
     //((PrefixTreeStrategy) strategy).setDistErrPct(0);//fully precise to grid
-
-    ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(false);
-
     System.out.println("Strategy: " + strategy.toString());
   }
 

@@ -50,7 +50,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   //TODO plug in others and test them
   private SpatialContext ctx;
   private SpatialPrefixTree trie;
-  final int ITERATIONS = 1000;
+  final int ITERATIONS = 10000;
 
   @Override
   @Before
@@ -91,7 +91,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   @Test
   public void testBadPrefixTreePrune() throws Exception {
 
-    trie = new FlexPrefixTree2D(ctx, 12);
+    trie = new QuadPrefixTree(ctx, 12);
     TermQueryPrefixTreeStrategy strategy = new TermQueryPrefixTreeStrategy(trie, "geo");
     Document doc = new Document();
     doc.add(new TextField("id", "1", Store.YES));

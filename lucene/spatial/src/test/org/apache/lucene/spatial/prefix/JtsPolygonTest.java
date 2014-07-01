@@ -90,7 +90,7 @@ public class JtsPolygonTest extends StrategyTestCase {
   
     Shape area = ctx.readShapeFromWkt("POLYGON((-122.83 48.57, -122.77 48.56, -122.79 48.53, -122.83 48.57))");
     
-    SpatialPrefixTree trie = new FlexPrefixTree2D(ctx, 12);
+    SpatialPrefixTree trie = new QuadPrefixTree(ctx, 12);
     TermQueryPrefixTreeStrategy strategy = new TermQueryPrefixTreeStrategy(trie, "geo");
     Document doc = new Document();
     doc.add(new TextField("id", "1", Store.YES));

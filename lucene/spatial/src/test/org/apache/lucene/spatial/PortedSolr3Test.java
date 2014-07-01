@@ -59,8 +59,14 @@ public class PortedSolr3Test extends StrategyTestCase {
     strategy = new RecursivePrefixTreeStrategy(grid, "recursive_geohash");
     ctorArgs.add(new Object[]{new Param(strategy)});
 
-    grid = new FlexPrefixTree2D(ctx,25);
+    grid = new QuadPrefixTree(ctx,25);
     strategy = new RecursivePrefixTreeStrategy(grid, "recursive_quad");
+    ctorArgs.add(new Object[]{new Param(strategy)});
+
+    grid = new FlexPrefixTree2D(ctx,25);
+    RecursivePrefixTreeStrategy rec_strategy = new RecursivePrefixTreeStrategy(grid, "recursive_flex");
+    rec_strategy.setPruneLeafyBranches(false);
+    strategy = rec_strategy;
     ctorArgs.add(new Object[]{new Param(strategy)});
 
     grid = new GeohashPrefixTree(ctx,12);
