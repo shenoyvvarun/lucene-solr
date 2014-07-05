@@ -50,7 +50,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   //TODO plug in others and test them
   private SpatialContext ctx;
   private SpatialPrefixTree trie;
-  final int ITERATIONS = 10000;
+  final int ITERATIONS = 10;
 
   @Override
   @Before

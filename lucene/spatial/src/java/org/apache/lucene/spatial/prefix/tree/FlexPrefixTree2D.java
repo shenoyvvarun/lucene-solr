@@ -50,7 +50,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
   public static final int DEFAULT_MAX_LEVELS = 12;
 
-  private final int[] subCellsPerLevel;
+  private final int[] numberOfSubCellsAsExponentOfTwo;
   private final double[] levelW;
   private final double[] levelH;
 
@@ -72,17 +72,17 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
   //Do we need maxlevels? SubcellsPerLevel should be enough
   //Can we provide a default cell division of 4
-  private FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels,int[] subCellsPerLevel) {
+  private FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels,int[] numberOfSubCellsAsExponentOfTwo) {
     super(ctx,maxLevels);
     //Todo remove this
-    if(subCellsPerLevel==null){
-      subCellsPerLevel = new int[maxLevels+1];
+    if(numberOfSubCellsAsExponentOfTwo==null){
+      numberOfSubCellsAsExponentOfTwo = new int[maxLevels+1];
       for(int i=0;i<=maxLevels;++i){
-        subCellsPerLevel[i] = 2;
+        numberOfSubCellsAsExponentOfTwo[i] = 2;
       }
     }
 
-    this.subCellsPerLevel = subCellsPerLevel;
+    this.numberOfSubCellsAsExponentOfTwo = numberOfSubCellsAsExponentOfTwo;
 
     this.xmin = bounds.getMinX();
     this.xmax = bounds.getMaxX();
@@ -99,7 +99,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     //Compute the rest
     for (int i = 1; i < levelW.length; i++) {
-      division = this.subCellsPerLevel[i];
+      division = this.numberOfSubCellsAsExponentOfTwo[i];
       levelW[i] = levelW[i - 1] / division;
       levelH[i] = levelH[i - 1] / division;
     }
@@ -172,7 +172,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     //Now from the cellstack obtain the correct numbered cell
     FlexCell cells[] = cell.getCellStack();
     cells[termLength].reuse(term);
-    cells[termLength].reDecode();
+    for(int i=0;i<termLength;i++){
+      cells[i].isDecoded = false;
+    }
     return cells[termLength];
   }
 
@@ -192,6 +194,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private boolean isLeaf;
     private boolean isShapeSet= false;
     private final Rectangle gridRectangle;
+    private boolean isDecoded;
 
     private double xmin;
     private double ymin;
@@ -208,6 +211,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.gridRectangle = ctx.makeRectangle(0,0,0,0);
       this.cellStack = cells;
       this.cellLevel = level;
+      this.isDecoded = false;
       this.cellIterator = new FlexPrefixTreeIterator();
       readLeafAdjust();
     }
@@ -270,7 +274,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     @Override
     public CellIterator getNextLevelCells(Shape shapeFilter) {
       assert getLevel() < FlexPrefixTree2D.this.getMaxLevels();
-      int endCellNumber = (1<<subCellsPerLevel[getLevel()])+1;
+      int endCellNumber = (1<<numberOfSubCellsAsExponentOfTwo[getLevel()])+1;
       return cellIterator.initIter(cellStack[getLevel() + 1], shapeFilter, START_CELL_NUMBER, endCellNumber);
     }
 
@@ -283,42 +287,32 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return gridRectangle;
     }
 
-    protected void reDecode(){
+    protected void decode(){
       BytesRef token = term;
-      if(token.length == 0){
-        //there is nothing to decode since the term is empty
-        return;
-      }
-      token.length =cellLevel;
-      double xmin = cellStack[0].xmin;
-      double ymin = cellStack[0].ymin;
-      int col,row;
-      for (int i = 1; i <= token.length; i++) {
-        int c = token.bytes[token.offset + i-1] -2;
-        int division = subCellsPerLevel[i];
+      if(cellLevel>0) {
+        FlexCell parent = cellStack[cellLevel-1];
+        if(!parent.isDecoded){
+          parent.decode();
+        }
+        xmin = parent.xmin;
+        ymin = parent.ymin;
+        int col, row;
+        token.length =cellLevel;
+        int c = token.bytes[token.offset + token.length - 1] - 2;
+        int division = numberOfSubCellsAsExponentOfTwo[token.length];
         col = (c / division);
-        row = (c - division*col);
-        xmin += levelW[i] * col;
-        ymin += levelH[i] * row;
-        cellStack[i].setMinCornerCoordinates(xmin,ymin);
+        row = (c - division * col);
+        xmin += levelW[token.length] * col;
+        ymin += levelH[token.length] * row;
       }
+      isDecoded = true;
     }
 
     private void makeShape() {
       //Todo Hilbert ordering
       BytesRef token = term;
+      decode();
       token.length =cellLevel;
-      if(cellLevel>0) {
-        xmin = cellStack[cellLevel - 1].xmin;
-        ymin = cellStack[cellLevel - 1].ymin;
-        int col, row;
-        int c = token.bytes[token.offset + token.length - 1] - 2;
-        int division = subCellsPerLevel[token.length];
-        col = (c / division);
-        row = (c % division);
-        xmin += levelW[token.length] * col;
-        ymin += levelH[token.length] * row;
-      }
       double xmax=xmin+levelW[token.length],ymax=ymin+levelH[token.length];
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
@@ -342,6 +336,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.isShapeSet = false;
       this.isLeaf = false;
       this.shapeRel = null;
+      this.isDecoded = false;
       this.term.copyBytes(term);
       readLeafAdjust();
       return this;
