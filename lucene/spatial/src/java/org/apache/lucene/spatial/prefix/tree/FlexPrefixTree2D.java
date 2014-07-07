@@ -341,6 +341,17 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       readLeafAdjust();
       return this;
     }
+
+    private Cell reuse() {
+      this.isShapeSet = false;
+      this.isLeaf = false;
+      this.shapeRel = null;
+      this.isDecoded = false;
+      readLeafAdjust();
+      return this;
+    }
+
+
   }
 
 
@@ -388,7 +399,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.scratch.term.length = this.scratch.cellLevel;
       //We must call this as we want the cell to invalidate its ShapeCache
       concat((byte)nextCellNumber);
-      scratch.reuse(target);
+      scratch.reuse(); //TODO do better than this
       ++nextCellNumber;
       return true;
     }
@@ -414,5 +425,14 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       }
       return false;
     }
+  }
+
+  private class CellStack{
+
+    
+    public CellStack(int maxLevels){
+
+    }
+
   }
 }
