@@ -87,17 +87,110 @@ Other Changes
 * SOLR-6169: Finish removal of CoreAdminHandler handleAlias action begun in 4.9 
   (Alan Woodward)
 
+* SOLR-6215: TrieDateField should directly extend TrieField instead of
+  forwarding to a wrapped TrieField. (Steve Rowe)
+
+* SOLR-2245: Numerous improvements of the MailEntityProcessor, including using
+  the GMail extensions to do server-side date filtering and using GreenMail in
+  the unit test to enable automated tests. (Timothy Potter)
+
 ==================  4.10.0 =================
+
+Versions of Major Components
+---------------------
+Apache Tika 1.5
+Carrot2 3.9.0
+Velocity 1.7 and Velocity Tools 2.0
+Apache UIMA 2.3.1
+Apache ZooKeeper 3.4.6
+
+Upgrading from Solr 4.9
+----------------------
+
+* In Solr 3.6, all primitive field types were changed to omit norms by default when the
+  schema version is 1.5 or greater (SOLR-3140), but TrieDateField's default was mistakenly
+  not changed.  As of Solr 4.10, TrieDateField omits norms by default (see SOLR-6211).
+
+* Creating a SolrCore via CoreContainer.create() no longer requires an
+  additional call to CoreContainer.register() to make it available to clients
+  (see SOLR-6170).
+
+Detailed Change List
+----------------------
+
+New Features
+----------------------
+* SOLR-6196: The overseerstatus collection API instruments amILeader and ZK state update calls.
+  (shalin)
+
+* SOLR-6069: The 'clusterstatus' API should return 'roles' information. (shalin)
+
+* SOLR-6044: The 'clusterstatus' API should return live_nodes as well. (shalin)
+
+* SOLR-5768: Add a distrib.singlePass parameter to make EXECUTE_QUERY phase fetch all fields
+  and skip GET_FIELDS. (Gregg Donovan, shalin)
 
 Bug Fixes
 ----------------------
 
 * SOLR-6095 : SolrCloud cluster can end up without an overseer with overseer roles (Noble Paul, Shalin Mangar)
 
+* SOLR-6165: DataImportHandler should write BigInteger and BigDecimal values as strings.
+  (Anand Sengamalai via shalin)
+  
+* SOLR-6189: Avoid publishing the state as down if the node is not live when determining
+  if a replica should be in leader-initiated recovery. (Timothy Potter)
+
+* SOLR-6197: The MIGRATE collection API doesn't work when legacyCloud=false is set
+  in cluster properties. (shalin)
+
+* SOLR-6206: The migrate collection API fails on retry if temp collection already exists.
+  (shalin)
+
+* SOLR-6072: The 'deletereplica' API should remove the data and instance directory by default.
+  (shalin)
+  
+* SOLR-6211: TrieDateField doesn't default to omitNorms=true. (Michael Ryan, Steve Rowe)
+
+* SOLR-6159: A ZooKeeper session expiry during setup can keep LeaderElector from joining elections.
+  (Steven Bower, shalin)
+
+* SOLR-6223: SearchComponents may throw NPE when using shards.tolerant and there is a failure
+  in the 'GET_FIELDS/GET_HIGHLIGHTS/GET_DEBUG' phase. (Tomás Fernández Löbbe via shalin)
+  
+* SOLR-6180: Callers of ManagedIndexSchema mutators should hold the schemaUpdateLock.
+  (Gregory Chanan via Steve Rowe)
+
+* SOLR-6229: Make SuggestComponent return 400 instead of 500 for bad dictionary selected in request.
+  (Tomás Fernández Löbbe via shalin)
+
+Optimizations
+---------------------
+
+* LUCENE-5803: Solr's schema now uses DelegatingAnalyzerWrapper. This uses less heap
+  for cached TokenStreamComponents because it caches per FieldType not per Field, so
+  indexes with many fields of same type just use one TokenStream per thread.
+  (Shay Banon, Uwe Schindler, Robert Muir)
+
 Other Changes
 ---------------------
 
 * SOLR-6173: Fixed wrong failure message in TestDistributedSearch. (shalin)
+
+* SOLR-6178, LUCENE-5775: Deprecate JaspellLookupFactory. (Uwe Schindler,
+  Mike McCandless)
+
+* SOLR-5902: Corecontainer level mbeans are not exposed (noble)
+
+* SOLR-6194: Allow access to DataImporter and DIHConfiguration from DataImportHandler.
+  (Aaron LaBella via shalin)
+
+* SOLR-6170: CoreContainer.preRegisterInZk() and CoreContainer.register() commands
+  are merged into CoreContainer.create(). (Alan Woodward)
+
+* SOLR-6171: Remove unused SolrCores coreNameToOrig map (Alan Woodward)
+
+* SOLR-5596: Set system property zookeeper.forceSync=no for Solr test cases. (shalin)
 
 ==================  4.9.0 ==================
 
@@ -277,9 +370,6 @@ Other Changes
 
 * SOLR-6128: Removed deprecated analysis factories and fieldTypes from the example
   schema.xml (hossman)
-
-* SOLR-6178, LUCENE-5775: Deprecate JaspellLookupFactory. (Uwe Schindler,
-  Mike McCandless)
 
 Optimizations
 ----------------------

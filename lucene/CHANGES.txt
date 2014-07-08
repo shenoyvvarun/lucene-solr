@@ -1,4 +1,3 @@
-
 Lucene Change Log
 
 For more information on past and future Lucene versions, please see:
@@ -24,9 +23,6 @@ New Features
 * LUCENE-5648: Index and search date ranges, particularly multi-valued ones. It's
   implemented in the spatial module as DateRangePrefixTree used with
   NumberRangePrefixTreeStrategy. (David Smiley)
-
-* LUCENE-4175: Index and search rectangles with spatial BBoxSpatialStrategy.
-  Sort documents by relative overlap of query areas. (Ryan McKinley)
 
 API Changes
 
@@ -101,9 +97,22 @@ New Features
 * LUCENE-5778: Support hunspell morphological description fields/aliases.
   (Robert Muir)
 
+* LUCENE-5801: Added (back) OrdinalMappingAtomicReader for merging search
+  indexes that contain category ordinals from separate taxonomy indexes.
+  (Nicola Buso via Shai Erera)
+
+* LUCENE-4175, LUCENE-5714, LUCENE-5779: Index and search rectangles with spatial
+  BBoxSpatialStrategy using most predicates.  Sort documents by relative overlap
+  of query areas or just by indexed shape area. (Ryan McKinley, David Smiley)
+  
 API Changes
 
 * LUCENE-5752: Simplified Automaton API to be immutable. (Mike McCandless)
+
+* LUCENE-5793: Add equals/hashCode to FieldType. (Shay Banon, Robert Muir)
+
+* LUCENE-5692: DisjointSpatialFilter is deprecated (used by RecursivePrefixTreeStrategy)
+  (David Smiley)
 
 Optimizations
 
@@ -112,6 +121,39 @@ Optimizations
 
 * LUCENE-5782: OrdinalMap now sorts enums before being built in order to
   improve compression. (Adrien Grand)
+
+* LUCENE-5798: Optimize MultiDocsEnum reuse. (Robert Muir)
+
+* LUCENE-5799: Optimize numeric docvalues merging. (Robert Muir)
+
+* LUCENE-5797: Optimize norms merging (Adrien Grand, Robert Muir)
+
+* LUCENE-5803: Add DelegatingAnalyzerWrapper, an optimized variant
+  of AnalyzerWrapper that doesn't allow to wrap components or readers.
+  This wrapper class is the base class of all analyzers that just delegate
+  to another analyzer, e.g. per field name: PerFieldAnalyzerWrapper and
+  Solr's schema support.  (Shay Banon, Uwe Schindler, Robert Muir)
+
+Bug Fixes
+
+* LUCENE-5796: Fixes the Scorer.getChildren() method for two combinations 
+  of BooleanQuery. (Terry Smith via Robert Muir)
+
+* LUCENE-5790: Fix compareTo in MutableValueDouble and MutableValueBool, this caused 
+  incorrect results when grouping on fields with missing values. 
+  (海老澤 志信, hossman)
+
+Test Framework
+
+* LUCENE-5786: Unflushed/ truncated events file (hung testing subprocess).
+  (Dawid Weiss)
+
+Build
+ 
+* LUCENE-5770: Upgrade to JFlex 1.6, which has direct support for
+  supplementary code points - as a result, ICU4J is no longer used
+  to generate surrogate pairs to augment JFlex scanner specifications.
+  (Steve Rowe)
 
 ======================= Lucene 4.9.0 =======================
 

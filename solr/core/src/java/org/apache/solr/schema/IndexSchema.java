@@ -18,8 +18,7 @@
 package org.apache.solr.schema;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.AnalyzerWrapper;
-import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.analysis.DelegatingAnalyzerWrapper;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
@@ -397,7 +396,7 @@ public class IndexSchema {
     return false;
   }
 
-  private class SolrIndexAnalyzer extends AnalyzerWrapper {
+  private class SolrIndexAnalyzer extends DelegatingAnalyzerWrapper {
     protected final HashMap<String, Analyzer> analyzers;
 
     SolrIndexAnalyzer() {
@@ -1474,7 +1473,9 @@ public class IndexSchema {
   }
 
   /**
-   * Copies this schema, adds the given field to the copy, then persists the new schema.
+   * Copies this schema, adds the given field to the copy, then persists the
+   * new schema.  Requires synchronizing on the object returned by
+   * {@link #getSchemaUpdateLock()}.
    *
    * @param newField the SchemaField to add 
    * @return a new IndexSchema based on this schema with newField added
@@ -1487,7 +1488,9 @@ public class IndexSchema {
   }
 
   /**
-   * Copies this schema, adds the given field to the copy, then persists the new schema.
+   * Copies this schema, adds the given field to the copy, then persists the
+   * new schema.  Requires synchronizing on the object returned by
+   * {@link #getSchemaUpdateLock()}.
    *
    * @param newField the SchemaField to add
    * @param copyFieldNames 0 or more names of targets to copy this field to.  The targets must already exist.
@@ -1501,7 +1504,9 @@ public class IndexSchema {
   }
 
   /**
-   * Copies this schema, adds the given fields to the copy, then persists the new schema.
+   * Copies this schema, adds the given fields to the copy, then persists the
+   * new schema.  Requires synchronizing on the object returned by
+   * {@link #getSchemaUpdateLock()}.
    *
    * @param newFields the SchemaFields to add
    * @return a new IndexSchema based on this schema with newFields added
@@ -1514,7 +1519,9 @@ public class IndexSchema {
   }
 
   /**
-   * Copies this schema, adds the given fields to the copy, then persists the new schema.
+   * Copies this schema, adds the given fields to the copy, then persists the
+   * new schema.  Requires synchronizing on the object returned by
+   * {@link #getSchemaUpdateLock()}.
    *
    * @param newFields the SchemaFields to add
    * @param copyFieldNames 0 or more names of targets to copy this field to.  The target fields must already exist.
@@ -1528,7 +1535,10 @@ public class IndexSchema {
   }
 
   /**
-   * Copies this schema and adds the new copy fields to the copy, then persists the new schema
+   * Copies this schema and adds the new copy fields to the copy, then
+   * persists the new schema.  Requires synchronizing on the object returned by
+   * {@link #getSchemaUpdateLock()}.
+   *
    * @param copyFields Key is the name of the source field name, value is a collection of target field names.  Fields must exist.
    * @return The new Schema with the copy fields added
    */
@@ -1551,6 +1561,18 @@ public class IndexSchema {
    * @see #addField(SchemaField)
    */
   public SchemaField newField(String fieldName, String fieldType, Map<String,?> options) {
+    String msg = "This IndexSchema is not mutable.";
+    log.error(msg);
+    throw new SolrException(ErrorCode.SERVER_ERROR, msg);
+  }
+
+  /**
+   * Returns the schema update lock that should be synchronzied on
+   * to update the schema.  Only applicable to mutable schemas.
+   *
+   * @return the schema update lock object to synchronize on
+   */
+  public Object getSchemaUpdateLock() {
     String msg = "This IndexSchema is not mutable.";
     log.error(msg);
     throw new SolrException(ErrorCode.SERVER_ERROR, msg);
