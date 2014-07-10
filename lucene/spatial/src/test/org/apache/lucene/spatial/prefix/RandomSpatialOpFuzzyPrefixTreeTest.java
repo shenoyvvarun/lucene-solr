@@ -67,13 +67,13 @@ import static com.spatial4j.core.shape.SpatialRelation.WITHIN;
  * results introduced by grid approximation. */
 public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
-  static final int ITERATIONS  =10;
+  static final int ITERATIONS  = 10;
 
   private SpatialPrefixTree grid;
   private SpatialContext ctx2D;
 
   public void setupGrid(int maxLevels) throws IOException {
-    switch(1) {
+    switch(randomIntBetween(1,3)) {
       case 1: setupFlexGrid(maxLevels);
               ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(false);
               break;

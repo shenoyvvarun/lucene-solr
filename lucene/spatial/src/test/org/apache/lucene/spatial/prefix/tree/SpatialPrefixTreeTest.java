@@ -150,6 +150,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
         Shape children = (new ShapeCollection<>(cells, ctx)).getBoundingBox();
         assertTrue(children.equals(parent));
         itr = cell.getNextLevelCells(p);
+        itr.hasNext();
         cell = itr.next();
         if (cell.getLevel() >= (maxLevels - 2)) {
           break;
