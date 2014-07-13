@@ -104,6 +104,10 @@ New Features
 * LUCENE-4175, LUCENE-5714, LUCENE-5779: Index and search rectangles with spatial
   BBoxSpatialStrategy using most predicates.  Sort documents by relative overlap
   of query areas or just by indexed shape area. (Ryan McKinley, David Smiley)
+
+* LUCENE-5806: Extend expressions grammar to support array access in variables.
+  Added helper class VariableContext to parse complex variable into pieces.
+  (Ryan Ernst)
   
 API Changes
 
@@ -139,6 +143,10 @@ Optimizations
   to another analyzer, e.g. per field name: PerFieldAnalyzerWrapper and
   Solr's schema support.  (Shay Banon, Uwe Schindler, Robert Muir)
 
+* LUCENE-5795: MoreLikeThisQuery now only collects the top N terms instead
+  of collecting all terms from the like text when building the query. 
+  (Alex Ksikes, Simon Willnauer)
+
 Bug Fixes
 
 * LUCENE-5796: Fixes the Scorer.getChildren() method for two combinations 
@@ -147,6 +155,12 @@ Bug Fixes
 * LUCENE-5790: Fix compareTo in MutableValueDouble and MutableValueBool, this caused 
   incorrect results when grouping on fields with missing values. 
   (海老澤 志信, hossman)
+
+* LUCENE-5817: Fix hunspell zero-affix handling: previously only zero-strips worked
+  correctly.  (Robert Muir)
+
+* LUCENE-5818: Fix hunspell overgeneration for short strings that also match affixes.
+  (Robert Muir)
 
 Test Framework
 

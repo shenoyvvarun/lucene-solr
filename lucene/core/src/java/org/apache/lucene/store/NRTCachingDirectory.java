@@ -24,6 +24,7 @@ import java.util.Set;
 
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.RAMDirectory;      // javadocs
+import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.IOUtils;
 
 // TODO
@@ -63,7 +64,7 @@ import org.apache.lucene.util.IOUtils;
  * @lucene.experimental
  */
 
-public class NRTCachingDirectory extends FilterDirectory {
+public class NRTCachingDirectory extends FilterDirectory implements Accountable {
 
   private final RAMDirectory cache = new RAMDirectory();
 
@@ -84,30 +85,6 @@ public class NRTCachingDirectory extends FilterDirectory {
     maxCachedBytes = (long) (maxCachedMB*1024*1024);
   }
 
-  @Override
-  public LockFactory getLockFactory() {
-    return in.getLockFactory();
-  }
-
-  @Override
-  public void setLockFactory(LockFactory lf) throws IOException {
-    in.setLockFactory(lf);
-  }
-
-  @Override
-  public String getLockID() {
-    return in.getLockID();
-  }
-
-  @Override
-  public Lock makeLock(String name) {
-    return in.makeLock(name);
-  }
-
-  @Override
-  public void clearLock(String name) throws IOException {
-    in.clearLock(name);
-  }
 
   @Override
   public String toString() {
@@ -139,12 +116,6 @@ public class NRTCachingDirectory extends FilterDirectory {
       }
     }
     return files.toArray(new String[files.size()]);
-  }
-
-  /** Returns how many bytes are being used by the
-   *  RAMDirectory cache */
-  public long cacheRamBytesUsed()  {
-    return cache.ramBytesUsed();
   }
 
   @Override
@@ -284,5 +255,10 @@ public class NRTCachingDirectory extends FilterDirectory {
         cache.deleteFile(fileName);
       }
     }
+  }
+
+  @Override
+  public long ramBytesUsed() {
+    return cache.ramBytesUsed();
   }
 }
