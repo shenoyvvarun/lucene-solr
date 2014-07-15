@@ -3,6 +3,7 @@ package org.apache.solr.cloud;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrException.ErrorCode;
+import org.apache.solr.common.cloud.Replica;
 import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.cloud.ZkCmdExecutor;
@@ -354,15 +355,15 @@ final class ShardLeaderElectionContext extends ShardLeaderElectionContextBase {
           
           String lirState = zkController.getLeaderInitiatedRecoveryState(coll, shardId, replicaCoreNodeName);
           if (ZkStateReader.DOWN.equals(lirState) || ZkStateReader.RECOVERY_FAILED.equals(lirState)) {
-            log.info("After core={} coreNodeName={} was elected leader, it was found in state: "
-                + lirState + " and needing recovery.", coreName, coreNodeName);
+            log.info("After core={} coreNodeName={} was elected leader, a replica coreNodeName={} was found in state: "
+                + lirState + " and needing recovery.", coreName, coreNodeName, replicaCoreNodeName);
             List<ZkCoreNodeProps> replicaProps = 
                 zkController.getZkStateReader().getReplicaProps(collection, shardId, coreNodeName);
             
             if (replicaProps != null && replicaProps.size() > 0) {                
               ZkCoreNodeProps coreNodeProps = null;
               for (ZkCoreNodeProps p : replicaProps) {
-                if (p.getCoreName().equals(replicaCoreNodeName)) {
+                if (((Replica)p.getNodeProps()).getName().equals(replicaCoreNodeName)) {
                   coreNodeProps = p;
                   break;
                 }

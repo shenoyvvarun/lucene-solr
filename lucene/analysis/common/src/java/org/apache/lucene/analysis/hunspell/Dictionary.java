@@ -84,6 +84,7 @@ public class Dictionary {
   private static final String IGNORE_KEY = "IGNORE";
   private static final String ICONV_KEY = "ICONV";
   private static final String OCONV_KEY = "OCONV";
+  private static final String FULLSTRIP_KEY = "FULLSTRIP";
 
   private static final String NUM_FLAG_TYPE = "num";
   private static final String UTF8_FLAG_TYPE = "UTF-8";
@@ -149,6 +150,9 @@ public class Dictionary {
   
   boolean needsInputCleaning;
   boolean needsOutputCleaning;
+  
+  // true if we can strip suffixes "down to nothing"
+  boolean fullStrip;
   
   /**
    * Creates a new Dictionary containing the information read from the provided InputStreams to hunspell affix
@@ -334,6 +338,8 @@ public class Dictionary {
           oconv = res;
           needsOutputCleaning |= oconv != null;
         }
+      } else if (line.startsWith(FULLSTRIP_KEY)) {
+        fullStrip = true;
       }
     }
     
@@ -1057,8 +1063,6 @@ public class Dictionary {
   /**
    * Implementation of {@link FlagParsingStrategy} that assumes each flag is encoded as two ASCII characters whose codes
    * must be combined into a single character.
-   *
-   * TODO (rmuir) test
    */
   private static class DoubleASCIIFlagParsingStrategy extends FlagParsingStrategy {
 
@@ -1073,8 +1077,13 @@ public class Dictionary {
         throw new IllegalArgumentException("Invalid flags (should be even number of characters): " + rawFlags);
       }
       for (int i = 0; i < rawFlags.length(); i+=2) {
-        char cookedFlag = (char) ((int) rawFlags.charAt(i) + (int) rawFlags.charAt(i + 1));
-        builder.append(cookedFlag);
+        char f1 = rawFlags.charAt(i);
+        char f2 = rawFlags.charAt(i+1);
+        if (f1 >= 256 || f2 >= 256) {
+          throw new IllegalArgumentException("Invalid flags (LONG flags must be double ASCII): " + rawFlags);
+        }
+        char combined = (char) (f1 << 8 | f2);
+        builder.append(combined);
       }
       
       char flags[] = new char[builder.length()];

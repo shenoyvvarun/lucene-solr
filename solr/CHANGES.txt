@@ -171,6 +171,19 @@ Bug Fixes
 * SOLR-6235: Leader initiated recovery should use coreNodeName instead of coreName to avoid marking
   all replicas having common core name as down. (shalin)
 
+* SOLR-6208: JettySolrRunner QueuedThreadPool's configuration code is never executed. (dweiss via shalin)
+
+* SOLR-6245: Socket and Connection configuration are ignored in HttpSolrServer when passing in HttpClient.
+  (Patanachai Tangchaisin, shalin)
+  
+* SOLR-6137: Schemaless concurrency improvements:
+  - Fixed an NPE when reloading a managed schema with no dynamic copy fields
+  - Moved parsing and schema fields addition to after the distributed phase
+  - AddSchemaFieldsUpdateProcessor now uses a fixed schema rather than always
+    retrieving the latest, and holds the schema update lock through the entire
+    schema swap-out process
+  (Gregory Chanan via Steve Rowe)
+
 Optimizations
 ---------------------
 
@@ -202,6 +215,14 @@ Other Changes
 * SOLR-2853: Add a unit test for the case when "spellcheck.maxCollationTries=0" (James Dyer)
 
 * SOLR-6240: Removed unused coreName parameter in ZkStateReader.getReplicaProps. (shalin)
+
+* SOLR-6241: Harden the HttpPartitionTest. (shalin)
+
+* SOLR-6228: Fixed bug in TestReplicationHandler.doTestIndexAndConfigReplication. (shalin)
+
+* SOLR-6120: On Windows, when the war is not extracted, the zkcli.bat script
+  will print a helpful message indicating that the war must be unzipped instead
+  of a java error about a missing class. (shalin, Shawn Heisey)
 
 ==================  4.9.0 ==================
 
