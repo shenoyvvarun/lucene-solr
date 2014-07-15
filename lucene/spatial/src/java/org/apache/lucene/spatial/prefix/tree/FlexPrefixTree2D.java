@@ -196,12 +196,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.cellIterator = new FlexPrefixTreeIterator(cellStack.term,cellLevel);
     }
 
-    private void readLeafAdjust() {
-      isLeaf = (cellStack.term.length > 0 && cellStack.term.bytes[cellStack.term.offset + cellStack.term.length - 1] == LEAF_BYTE);
-      if (isLeaf)
-        cellStack.term.length--;
-    }
-
     protected CellStack getCellStack(){
       return cellStack;
     }
@@ -254,7 +248,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     @Override
     public CellIterator getNextLevelCells(Shape shapeFilter) {
       assert getLevel() < FlexPrefixTree2D.this.getMaxLevels();
-      return cellIterator.init(cellStack.cells[getLevel() + 1], shapeFilter, START_CELL_NUMBER);
+      return cellIterator.init(shapeFilter, START_CELL_NUMBER);
     }
 
     @Override
@@ -293,8 +287,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.isShapeSet = false;
       this.isLeaf = false;
       this.shapeRel = null;
-      this.cellStack.term.copyBytes(term);
-      readLeafAdjust();// This is required here as the term placed may contain leaf
+      this.cellStack.term.length = term.length;
+      this.cellStack.term.bytes = term.bytes;
+      this.cellStack.term.offset = term.offset;
+      // Now the term placed here may have a leaf
+      isLeaf = (cellStack.term.length > 0 && cellStack.term.bytes[cellStack.term.offset + cellStack.term.length - 1] == LEAF_BYTE);
+      if (isLeaf)
+        cellStack.term.length--;
       return this;
     }
 
@@ -330,10 +329,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     }
 
     //Inititalizes the Iterator, so that we can reuse the iterator
-    protected CellIterator init(FlexCell scratch,Shape shapeFilter,int start){
+    protected CellIterator init(Shape shapeFilter,int start){
       this.nextCell = null;
       this.thisCell = null;
-      this.cell = scratch;
       //Level 0 does not store a byte its byte pos is -1, but, in makeshape this is handled
       //Level 1 stores its byte at index 0
       //this.bytePos = this.scratch.cellLevel-1;
@@ -342,10 +340,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return this;
     }
 
+    protected void setReuseCell(FlexCell cell){
+      this.cell = cell;
+    }
+
     //Concatenates to the source BytesRef the given byte and places into te target
     private void changeTailByte(byte b) {
-      assert term.offset == 0;
-      term.bytes[bytePos] = b;
+      term.bytes[term.offset+bytePos] = b;
     }
 
     //Populates into scratch the next cell in z-order TODO Hilbert ordering
@@ -394,13 +395,16 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     protected final FlexCell cells[];
     protected int lastDecodedLevel = 0;
-    protected final BytesRef term;
+    protected BytesRef term;
 
     public CellStack(int maxLevels,double xmin,double ymin){
       this.cells = new FlexCell[maxLevels + 1];
       term = new BytesRef(maxLevels+1); //+1 For leaf and this byteRef will be shared within the stack
       for (int level = 0; level <= maxLevels; level++) {
         cells[level] = new FlexCell(this,level);
+        if(level != 0){
+          cells[level-1].cellIterator.setReuseCell(cells[level]);
+        }
       }
       //? The xmin,ymin needs to be set for the top cell. From there its decoded lazily a level at a time
       cells[0].setMinCornerCoordinates(xmin,ymin);
