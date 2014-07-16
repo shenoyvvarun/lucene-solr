@@ -20,6 +20,8 @@ package org.apache.lucene.benchmark.byTask.tasks;
 import org.apache.lucene.benchmark.byTask.PerfRunData;
 import org.apache.lucene.benchmark.byTask.utils.Config;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.PostingsFormat;
+import org.apache.lucene.codecs.lucene49.Lucene49Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexDeletionPolicy;
@@ -135,6 +137,15 @@ public class CreateIndexTask extends PerfTask {
       }
     }
 
+    final String postingsFormat = config.get("codec.postingsFormat",null);
+    if(postingsFormat != null){
+      try {
+        iwConf.setCodec(new PostingsFormatChooserCodec(postingsFormat));
+      }catch (Exception e) {
+        throw new RuntimeException("Couldn't instantiate the specified Postings Format");
+      }
+    }
+
     final String mergePolicy = config.get("merge.policy",
                                           "org.apache.lucene.index.LogByteSizeMergePolicy");
     boolean isCompound = config.get("compound", true);
@@ -181,5 +192,18 @@ public class CreateIndexTask extends PerfTask {
     }
     IndexWriter writer = new IndexWriter(runData.getDirectory(), iwc);
     return writer;
+  }
+
+  private static class PostingsFormatChooserCodec extends Lucene49Codec{
+    final PostingsFormat chosenPostingsFormat;
+
+    PostingsFormatChooserCodec(String postingsFormat){
+      chosenPostingsFormat = PostingsFormat.forName(postingsFormat);
+    }
+
+    @Override
+    public PostingsFormat getPostingsFormatForField(String field){
+      return chosenPostingsFormat;
+    }
   }
 }

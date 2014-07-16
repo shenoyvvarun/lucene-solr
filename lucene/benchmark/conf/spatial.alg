@@ -29,12 +29,15 @@ doc.maker=org.apache.lucene.benchmark.byTask.feeds.SpatialDocMaker
 #spatial.worldBounds=...
 #  Spatial Grid: (PrefixTree)  see SpatialPrefixTreeFactory.makeSPT
 #spatial.prefixTree=geohash  (or quad)
+spatial.prefixTree=quad
 #spatial.maxLevels=11
 #spatial.maxDistErr (in degrees) to compute maxLevels -- defaults to 1 meter's worth
 #  RecursivePrefixTreeStrategy:
 spatial.docPointsOnly=true
 #spatial.distErrPct=.25
 #spatial.prefixGridScanLevel=-4
+#codec.postingsFormat=Memory
+#codec.postingsFormat=Direct
 
 ### Source & Doc
 content.source=org.apache.lucene.benchmark.byTask.feeds.LineDocSource
