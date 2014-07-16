@@ -349,20 +349,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       term.bytes[term.offset+bytePos] = b;
     }
 
-    //Populates into scratch the next cell in z-order TODO Hilbert ordering
-    private boolean levelHasUntraversedCell(){
-      if(nextCellNumber> endCellNumber){
-        nextCell=null;
-        return false;
-      }
-      this.cell.cellStack.term.length = this.cell.cellLevel;
-      //We must call this as we want the cell to invalidate its ShapeCache
-      changeTailByte((byte)nextCellNumber);
-      cell.reuse();
-      ++nextCellNumber;
-      return true;
-    }
-
     @Override
     public boolean hasNext() {
       thisCell = null;
@@ -383,6 +369,20 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         }
       }
       return false;
+    }
+
+    //Populates into scratch the next cell in z-order TODO Hilbert ordering
+    private boolean levelHasUntraversedCell(){
+      if(nextCellNumber> endCellNumber){
+        nextCell=null;
+        return false;
+      }
+      this.cell.cellStack.term.length = this.cell.cellLevel;
+      //We must call this as we want the cell to invalidate its ShapeCache
+      changeTailByte((byte)nextCellNumber);
+      cell.reuse();
+      ++nextCellNumber;
+      return true;
     }
   }
 
