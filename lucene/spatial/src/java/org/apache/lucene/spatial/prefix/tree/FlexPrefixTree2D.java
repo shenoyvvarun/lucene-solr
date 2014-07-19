@@ -188,12 +188,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.ymin = ymin;
     }
 
-    protected FlexCell(CellStack cells,int level){
+    protected FlexCell(FlexCell cell,CellStack cells,int level){
       super();
       this.gridRectangle = ctx.makeRectangle(0,0,0,0);
       this.cellStack = cells;
       this.cellLevel = level;
-      this.cellIterator = new FlexPrefixTreeIterator(cellStack.term,cellLevel);
+      this.cellIterator = new FlexPrefixTreeIterator(cell,cellStack.term,cellLevel);
     }
 
     protected CellStack getCellStack(){
@@ -317,13 +317,14 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     private final BytesRef term;
     private final int bytePos;
-    private int nextCellNumber;
     private final int endCellNumber;
-    private FlexCell cell;
+    private final FlexCell cell;
+    private int nextCellNumber;
     private Shape shapeFilter;
 
-    protected FlexPrefixTreeIterator(BytesRef sharedTerm,int level){
+    protected FlexPrefixTreeIterator(FlexCell cell,BytesRef sharedTerm,int level){
       this.term = sharedTerm;
+      this.cell = cell;
       this.endCellNumber = (1<<numberOfSubCellsAsExponentOfTwo[level])+1;
       this.bytePos = level;
     }
@@ -338,10 +339,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       this.shapeFilter = shapeFilter;
       this.nextCellNumber = start;
       return this;
-    }
-
-    protected void setReuseCell(FlexCell cell){
-      this.cell = cell;
     }
 
     //Concatenates to the source BytesRef the given byte and places into te target
@@ -400,10 +397,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     public CellStack(int maxLevels,double xmin,double ymin){
       this.cells = new FlexCell[maxLevels + 1];
       term = new BytesRef(maxLevels+1); //+1 For leaf and this byteRef will be shared within the stack
-      for (int level = 0; level <= maxLevels; level++) {
-        cells[level] = new FlexCell(this,level);
-        if(level != 0){
-          cells[level-1].cellIterator.setReuseCell(cells[level]);
+      for (int level = maxLevels; level >= 0; --level) {
+        if (level != maxLevels) {
+          cells[level] = new FlexCell(cells[level + 1], this, level);
+        }else{
+          cells[level] = new FlexCell(null, this, level);
         }
       }
       //? The xmin,ymin needs to be set for the top cell. From there its decoded lazily a level at a time
