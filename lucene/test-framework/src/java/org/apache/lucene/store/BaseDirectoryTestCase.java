@@ -17,6 +17,7 @@ package org.apache.lucene.store;
  * limitations under the License.
  */
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -439,6 +440,56 @@ public abstract class BaseDirectoryTestCase extends LuceneTestCase {
     dir.close();
   }
 
+  public void testSeekPastEOF() throws Exception {
+    Directory dir = getDirectory(createTempDir("testSeekPastEOF"));
+    IndexOutput o = dir.createOutput("out", newIOContext(random()));
+    final int len = random().nextInt(2048);
+    byte[] b = new byte[len];
+    o.writeBytes(b, 0, len);
+    o.close();
+    IndexInput i = dir.openInput("out", newIOContext(random()));
+    try {
+      i.seek(len + random().nextInt(2048));
+      i.readByte();
+      fail("Did not get EOFException");
+    } catch (EOFException eof) {
+      // pass
+    }
+    i.close();
+    dir.close();
+  }
+
+  public void testSliceOutOfBounds() throws Exception {
+    Directory dir = getDirectory(createTempDir("testSliceOutOfBounds"));
+    IndexOutput o = dir.createOutput("out", newIOContext(random()));
+    final int len = random().nextInt(2040) + 8;
+    byte[] b = new byte[len];
+    o.writeBytes(b, 0, len);
+    o.close();
+    IndexInput i = dir.openInput("out", newIOContext(random()));
+    try {
+      i.slice("slice1", 0, len + 1);
+      fail("Did not get IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+      // pass
+    }
+    try {
+      i.slice("slice2", -1, len);
+      fail("Did not get IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+      // pass
+    }
+    IndexInput slice = i.slice("slice3", 4, len / 2);
+    try {
+      slice.slice("slice3sub", 1, len / 2);
+      fail("Did not get IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+      // pass
+    }
+    i.close();
+    dir.close();    
+  }
+  
   // LUCENE-3382 -- make sure we get exception if the directory really does not exist.
   public void testNoDir() throws Throwable {
     File tempDir = createTempDir("doesnotexist");
