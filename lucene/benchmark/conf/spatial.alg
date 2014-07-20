@@ -36,8 +36,7 @@ spatial.prefixTree=quad
 spatial.docPointsOnly=true
 #spatial.distErrPct=.25
 #spatial.prefixGridScanLevel=-4
-#codec.postingsFormat=Memory
-#codec.postingsFormat=Direct
+#codec.postingsFormat=Memory or (Direct)
 
 ### Source & Doc
 content.source=org.apache.lucene.benchmark.byTask.feeds.LineDocSource
