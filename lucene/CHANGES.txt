@@ -108,6 +108,9 @@ New Features
 * LUCENE-5806: Extend expressions grammar to support array access in variables.
   Added helper class VariableContext to parse complex variable into pieces.
   (Ryan Ernst)
+
+* LUCENE-5826: Support proper hunspell case handling, LANG, KEEPCASE, NEEDAFFIX,
+  and ONLYINCOMPOUND flags.  (Robert Muir)
   
 API Changes
 
@@ -147,6 +150,13 @@ Optimizations
   of collecting all terms from the like text when building the query. 
   (Alex Ksikes, Simon Willnauer)
 
+* LUCENE-5681: Fix RAMDirectory's IndexInput to not do double buffering
+  on slices (causes useless data copying, especially on random access slices).
+  This also improves slices of NRTCachingDirectory, because the cache
+  is based on RAMDirectory. BufferedIndexInput.wrap() was marked with a
+  warning in javadocs. It is almost always a better idea to implement
+  slicing on your own!  (Uwe Schindler, Robert Muir)
+
 Bug Fixes
 
 * LUCENE-5796: Fixes the Scorer.getChildren() method for two combinations 
@@ -164,6 +174,9 @@ Bug Fixes
   is specifed in the dictionary.  (Robert Muir)
 
 * LUCENE-5824: Fix hunspell 'long' flag handling. (Robert Muir)
+
+* LUCENE-5827: Make all Directory implementations correctly fail with
+  IllegalArgumentException if slices are out of bounds.  (Uwe SChindler)
 
 Test Framework
 

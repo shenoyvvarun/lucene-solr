@@ -20,7 +20,14 @@ package org.apache.lucene.benchmark.byTask.tasks;
 import org.apache.lucene.benchmark.byTask.PerfRunData;
 import org.apache.lucene.benchmark.byTask.utils.Config;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.DocValuesFormat;
+import org.apache.lucene.codecs.FieldInfosFormat;
+import org.apache.lucene.codecs.LiveDocsFormat;
+import org.apache.lucene.codecs.NormsFormat;
 import org.apache.lucene.codecs.PostingsFormat;
+import org.apache.lucene.codecs.SegmentInfoFormat;
+import org.apache.lucene.codecs.StoredFieldsFormat;
+import org.apache.lucene.codecs.TermVectorsFormat;
 import org.apache.lucene.codecs.lucene49.Lucene49Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexCommit;
@@ -138,9 +145,15 @@ public class CreateIndexTask extends PerfTask {
     }
 
     final String postingsFormat = config.get("codec.postingsFormat",null);
-    if(postingsFormat != null){
+    if(defaultCodec == null && postingsFormat != null){
       try {
-        iwConf.setCodec(new PostingsFormatChooserCodec(postingsFormat));
+        final PostingsFormat postingsFormatChosen = PostingsFormat.forName(postingsFormat);
+        iwConf.setCodec(new Lucene49Codec(){
+          @Override
+          public PostingsFormat getPostingsFormatForField(String field) {
+            return postingsFormatChosen;
+          }
+        });
       }catch (Exception e) {
         throw new RuntimeException("Couldn't instantiate the specified Postings Format");
       }
@@ -192,18 +205,5 @@ public class CreateIndexTask extends PerfTask {
     }
     IndexWriter writer = new IndexWriter(runData.getDirectory(), iwc);
     return writer;
-  }
-
-  private static class PostingsFormatChooserCodec extends Lucene49Codec{
-    final PostingsFormat chosenPostingsFormat;
-
-    PostingsFormatChooserCodec(String postingsFormat){
-      chosenPostingsFormat = PostingsFormat.forName(postingsFormat);
-    }
-
-    @Override
-    public PostingsFormat getPostingsFormatForField(String field){
-      return chosenPostingsFormat;
-    }
   }
 }

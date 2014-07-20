@@ -16,6 +16,7 @@ package org.apache.solr.schema;
  * limitations under the License.
  */
 
+import org.apache.solr.SolrTestCaseJ4.SuppressSSL;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.cloud.AbstractFullDistribZkTestBase;
@@ -42,6 +43,7 @@ import java.util.TreeMap;
 /**
  * Tests a schemaless collection configuration with SolrCloud
  */
+@SuppressSSL
 public class TestCloudSchemaless extends AbstractFullDistribZkTestBase {
   private static final Logger log = LoggerFactory.getLogger(TestCloudManagedSchemaConcurrent.class);
   private static final String SUCCESS_XPATH = "/response/lst[@name='responseHeader']/int[@name='status'][.='0']";
@@ -123,7 +125,7 @@ public class TestCloudSchemaless extends AbstractFullDistribZkTestBase {
     int trials = 50;
     // generate enough docs so that we can expect at least a doc per slice
     int numDocsPerTrial = (int)(slices * (Math.log(slices) + 1));
-    SolrServer ss = clients.get(random().nextInt(clients.size() + 1));
+    SolrServer ss = clients.get(random().nextInt(clients.size()));
     int docNumber = 0;
     for (int i = 0; i < trials; ++i) {
       List<SolrInputDocument> docs = new ArrayList<>();
