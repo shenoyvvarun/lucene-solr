@@ -51,15 +51,20 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
   public static final int DEFAULT_MAX_LEVELS = 12;
 
   private final int[] numberOfSubCellsAsExponentOfTwo;
-  private final double[] levelW;
-  private final double[] levelH;
+  private final int[] gridSizes;
 
 
   //The world bounds for the grid
-  private final double xmin;
-  private final double xmax;
-  private final double ymin;
-  private final double ymax;
+  private final int xmin;
+  private final int xmax;
+  private final int ymin;
+  private final int ymax;
+
+  private final double intToDoubleX;
+  private final double intToDoubleY;
+  private final int newOriginX;
+  private final int newOriginY;
+
 
   private final byte LEAF_BYTE = 0x01;
   private final byte START_CELL_NUMBER = 0x02;
@@ -84,25 +89,32 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     this.numberOfSubCellsAsExponentOfTwo = numberOfSubCellsAsExponentOfTwo;
 
-    this.xmin = bounds.getMinX();
-    this.xmax = bounds.getMaxX();
-    this.ymin = bounds.getMinY();
-    this.ymax = bounds.getMaxY();
+    this.xmin = 0;
+    this.ymin = 0;
+    this.xmax = (1<<maxLevels);
+    this.ymax = (1<<maxLevels);
 
-    levelW = new double[maxLevels+1];
-    levelH = new double[maxLevels+1];
+    this.gridSizes = new int[maxLevels+1];
 
     //Now we will create a lookup for height and width for levels
     int division;
-    levelW[0]= xmax - xmin;
-    levelH[0]= ymax - ymin;;
+    gridSizes[0]= xmax - xmin;
 
     //Compute the rest
-    for (int i = 1; i < levelW.length; i++) {
-      division = this.numberOfSubCellsAsExponentOfTwo[i];
-      levelW[i] = levelW[i - 1] / division;
-      levelH[i] = levelH[i - 1] / division;
+    for (int i = 1; i < gridSizes.length; i++) {
+      division = (this.numberOfSubCellsAsExponentOfTwo[i]-1);
+      gridSizes[i] =  (gridSizes[i-1] >> division);
     }
+
+    double doubleToIntX = (xmax - xmin)/(bounds.getMaxX()-bounds.getMinX());
+    double doubleToIntY = (ymax - ymin)/(bounds.getMaxY()-bounds.getMinY());
+
+    intToDoubleX = (bounds.getMaxX()-bounds.getMinX())/(xmax - xmin);
+    intToDoubleY = (bounds.getMaxY()-bounds.getMinY())/(ymax - ymin);
+
+
+    newOriginX = (int)((0-bounds.getMinX())*doubleToIntX);
+    newOriginY = (int)((0-bounds.getMinY())*doubleToIntY);
 
   }
 
@@ -121,7 +133,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     if (dist == 0)//short circuit
       return maxLevels;
     for (int i = 0; i < maxLevels-1; i++) {
-      if(dist > levelW[i] && dist > levelH[i]) {
+      if(dist > (gridSizes[i] * intToDoubleX) && dist > (gridSizes[i] * intToDoubleY)) {
         return i;
       }
     }
@@ -133,8 +145,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     if (level < 1 || level > getMaxLevels())
       throw new IllegalArgumentException("Level must be in 1 to maxLevels range");
     //get the grid width and height for that level
-    double width = levelW[level];
-    double height = levelH[level];
+    double width = gridSizes[level] * intToDoubleX;
+    double height = gridSizes[level] * intToDoubleY;
     //Use standard cartesian hypotenuse. For geospatial, this answer is larger
     // than the correct one but it's okay to over-estimate.
     return Math.sqrt(width * width + height * height);
@@ -179,10 +191,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private boolean isShapeSet= false;
     private SpatialRelation shapeRel;
 
-    private double xmin;
-    private double ymin;
+    private int xmin;
+    private int ymin;
 
-    protected void setMinCornerCoordinates(double xmin,double ymin){
+    protected void setMinCornerCoordinates(int xmin,int ymin){
       //Set the coordinates of bottom most corner
       this.xmin = xmin;
       this.ymin = ymin;
@@ -263,7 +275,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private void makeShape() {
       BytesRef token = cellStack.term;
       cellStack.decode(cellLevel);//Decode the terms
-      double xmax=xmin+levelW[token.length],ymax=ymin+levelH[token.length];
+      double xmax = xmin+gridSizes[token.length]-newOriginX,ymax=ymin+gridSizes[token.length]-newOriginY;
+      double xmin = (this.xmin - newOriginX) * intToDoubleX;
+      double ymin = (this.ymin - newOriginY) * intToDoubleY;
+      xmax *= intToDoubleX;
+      ymax *= intToDoubleY;
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
 
@@ -394,7 +410,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     protected int lastDecodedLevel = 0;
     protected BytesRef term;
 
-    public CellStack(int maxLevels,double xmin,double ymin){
+    public CellStack(int maxLevels,int xmin,int ymin){
       this.cells = new FlexCell[maxLevels + 1];
       term = new BytesRef(maxLevels+1); //+1 For leaf and this byteRef will be shared within the stack
       for (int level = maxLevels; level >= 0; --level) {
@@ -409,8 +425,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     }
 
     protected void decode(int cellLevel){
-      double xmin;
-      double ymin;
+      int xmin;
+      int ymin;
       int row;
       int col;
       int c;
@@ -423,8 +439,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
         division = numberOfSubCellsAsExponentOfTwo[i+1];
         col = (c / division);
         row = (c - division * col);
-        xmin += levelW[i+1] * col;
-        ymin += levelH[i+1] * row;
+        xmin += gridSizes[i+1] * col;
+        ymin += gridSizes[i+1] * row;
         cells[i+1].setMinCornerCoordinates(xmin,ymin);
       }
       if(lastDecodedLevel  < cellLevel) {
