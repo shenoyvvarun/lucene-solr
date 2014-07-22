@@ -108,6 +108,23 @@ New Features
 * LUCENE-5806: Extend expressions grammar to support array access in variables.
   Added helper class VariableContext to parse complex variable into pieces.
   (Ryan Ernst)
+
+* LUCENE-5826: Support proper hunspell case handling, LANG, KEEPCASE, NEEDAFFIX,
+  and ONLYINCOMPOUND flags.  (Robert Muir)
+
+* LUCENE-5815: Add TermAutomatonQuery, a proximity query allowing you
+  to create an arbitrary automaton, using terms on the transitions,
+  expressing which sequence of sequential terms (including a special
+  "any" term) are allowed.  This is a generalization of
+  MultiPhraseQuery and span queries, and enables "correct" (including
+  position) length search-time graph synonyms.  (Mike McCandless)
+
+* LUCENE-5819: Add OrdsLucene41 block tree terms dict and postings
+  format, to include term ordinals in the index so the optional
+  TermsEnum.ord() and TermsEnum.seekExact(long ord) APIs work.  (Mike
+  McCandless)
+
+* LUCENE-5835: TermValComparator can sort missing values last. (Adrien Grand)
   
 API Changes
 
@@ -147,6 +164,16 @@ Optimizations
   of collecting all terms from the like text when building the query. 
   (Alex Ksikes, Simon Willnauer)
 
+* LUCENE-5681: Fix RAMDirectory's IndexInput to not do double buffering
+  on slices (causes useless data copying, especially on random access slices).
+  This also improves slices of NRTCachingDirectory, because the cache
+  is based on RAMDirectory. BufferedIndexInput.wrap() was marked with a
+  warning in javadocs. It is almost always a better idea to implement
+  slicing on your own!  (Uwe Schindler, Robert Muir)
+
+* LUCENE-5834: Empty sorted set and numeric doc values are now singletons.
+  (Adrien Grand)
+
 Bug Fixes
 
 * LUCENE-5796: Fixes the Scorer.getChildren() method for two combinations 
@@ -164,6 +191,11 @@ Bug Fixes
   is specifed in the dictionary.  (Robert Muir)
 
 * LUCENE-5824: Fix hunspell 'long' flag handling. (Robert Muir)
+
+* LUCENE-5827: Make all Directory implementations correctly fail with
+  IllegalArgumentException if slices are out of bounds.  (Uwe SChindler)
+
+* LUCENE-5838: Fix hunspell when the .aff file has over 64k affixes. (Robert Muir)
 
 Test Framework
 
