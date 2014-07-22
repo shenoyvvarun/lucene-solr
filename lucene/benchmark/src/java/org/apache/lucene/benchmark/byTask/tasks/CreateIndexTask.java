@@ -20,14 +20,7 @@ package org.apache.lucene.benchmark.byTask.tasks;
 import org.apache.lucene.benchmark.byTask.PerfRunData;
 import org.apache.lucene.benchmark.byTask.utils.Config;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.DocValuesFormat;
-import org.apache.lucene.codecs.FieldInfosFormat;
-import org.apache.lucene.codecs.LiveDocsFormat;
-import org.apache.lucene.codecs.NormsFormat;
 import org.apache.lucene.codecs.PostingsFormat;
-import org.apache.lucene.codecs.SegmentInfoFormat;
-import org.apache.lucene.codecs.StoredFieldsFormat;
-import org.apache.lucene.codecs.TermVectorsFormat;
 import org.apache.lucene.codecs.lucene49.Lucene49Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexCommit;
@@ -145,7 +138,7 @@ public class CreateIndexTask extends PerfTask {
     }
 
     final String postingsFormat = config.get("codec.postingsFormat",null);
-    if(defaultCodec == null && postingsFormat != null){
+    if (defaultCodec == null && postingsFormat != null) {
       try {
         final PostingsFormat postingsFormatChosen = PostingsFormat.forName(postingsFormat);
         iwConf.setCodec(new Lucene49Codec(){
@@ -154,8 +147,8 @@ public class CreateIndexTask extends PerfTask {
             return postingsFormatChosen;
           }
         });
-      }catch (Exception e) {
-        throw new RuntimeException("Couldn't instantiate the specified Postings Format");
+      } catch (Exception e) {
+        throw new RuntimeException("Couldn't instantiate Postings Format: " + postingsFormat, e);
       }
     }
 
