@@ -111,6 +111,20 @@ New Features
 
 * LUCENE-5826: Support proper hunspell case handling, LANG, KEEPCASE, NEEDAFFIX,
   and ONLYINCOMPOUND flags.  (Robert Muir)
+
+* LUCENE-5815: Add TermAutomatonQuery, a proximity query allowing you
+  to create an arbitrary automaton, using terms on the transitions,
+  expressing which sequence of sequential terms (including a special
+  "any" term) are allowed.  This is a generalization of
+  MultiPhraseQuery and span queries, and enables "correct" (including
+  position) length search-time graph synonyms.  (Mike McCandless)
+
+* LUCENE-5819: Add OrdsLucene41 block tree terms dict and postings
+  format, to include term ordinals in the index so the optional
+  TermsEnum.ord() and TermsEnum.seekExact(long ord) APIs work.  (Mike
+  McCandless)
+
+* LUCENE-5835: TermValComparator can sort missing values last. (Adrien Grand)
   
 API Changes
 
@@ -157,6 +171,9 @@ Optimizations
   warning in javadocs. It is almost always a better idea to implement
   slicing on your own!  (Uwe Schindler, Robert Muir)
 
+* LUCENE-5834: Empty sorted set and numeric doc values are now singletons.
+  (Adrien Grand)
+
 Bug Fixes
 
 * LUCENE-5796: Fixes the Scorer.getChildren() method for two combinations 
@@ -177,6 +194,8 @@ Bug Fixes
 
 * LUCENE-5827: Make all Directory implementations correctly fail with
   IllegalArgumentException if slices are out of bounds.  (Uwe SChindler)
+
+* LUCENE-5838: Fix hunspell when the .aff file has over 64k affixes. (Robert Muir)
 
 Test Framework
 
