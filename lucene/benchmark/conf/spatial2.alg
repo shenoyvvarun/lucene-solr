@@ -17,7 +17,7 @@
 # -------------------------------------------------------------------------------------
 # Spatial search benchmark
 #  In order to use this, you'll need to first run 'ant geonames-files'.
-#  You may need more memory when running this: -Dtask.mem=1000M
+#  You may need more memory when running this: -Dtask.mem=1000M (5000M for direct)
 #  For docs on what options are available, see the javadocs.
 
 #  Benchmark existing geohash, and quad implementations
@@ -35,6 +35,7 @@ spatial.maxDistErr = 0.000009
 spatial.docPointsOnly=true
 spatial.pruneLeafyBranches=false
 #spatial.distErrPct=.25
+codec.prostingsFormat=Direct
 
 ### Source & Doc
 content.source=org.apache.lucene.benchmark.byTask.feeds.LineDocSource
@@ -59,7 +60,7 @@ query.file.line.parser=org.apache.lucene.benchmark.byTask.feeds.GeonamesLinePars
 query.spatial.radiusDegrees=0
 query.spatial.radiusDegreesRandPlusMinus=3
 query.spatial.bbox=false
-query.spatial.prefixGridScanLevel=pgsl:-2:-3:-4:-5:-6:-7:-8:-9:-10:-11:-12
+query.spatial.prefixGridScanLevel=pgsl:-1:-2:-3:-4:-5:-6:-7:-8:-9:-10:1
 query.spatial.score=false
 
 ### Misc
@@ -70,11 +71,11 @@ log.step.AddDoc = 100000
   ResetSystemErase
   CreateIndex
   #1 million docs, to speed up add, do it parallely
-  [{ "MAddDocs" AddDoc} : 250000] : 4
+  [{ "MAddDocs" AddDoc} : 500000] : 4
   ForceMerge(1)
   CommitIndex
   CloseIndex
-} : 0
+} : 1
 
 #set above round to 0 on subsequent runs if not changing indexing but experimenting with search
 
@@ -91,5 +92,5 @@ CloseReader
   CloseReader
 
   NewRound
-} : 10
+} : 11
 RepSumByPrefRound Queries
