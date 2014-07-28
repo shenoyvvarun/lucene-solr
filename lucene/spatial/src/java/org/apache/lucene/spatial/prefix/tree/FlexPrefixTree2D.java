@@ -343,6 +343,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     private double shapeFilterXMax;
     private double shapeFilterYMin;
     private double shapeFilterYMax;
+    private int shapeFilterXMinInt;
+    private int shapeFilterXMaxInt;
+    private int shapeFilterYMinInt;
+    private int shapeFilterYMaxInt;
     private Rectangle shapeFilterBoundingBox;
 
     protected FlexPrefixTreeIterator(FlexCell cell, BytesRef sharedTerm, int level) {
@@ -367,6 +371,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         this.shapeFilterXMin = (shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX;
         this.shapeFilterYMax = (shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY;
         this.shapeFilterYMin = (shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY;
+        this.shapeFilterXMaxInt = (int)((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterXMinInt = (int)((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterYMinInt = (int)((shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY);
+        this.shapeFilterYMaxInt = (int)((shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY);
       }
       this.nextCellNumber = start;
       return this;
@@ -410,6 +418,25 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       return SpatialRelation.INTERSECTS;
     }
 
+    private SpatialRelation checkDisjointCoordinate(int int_min, int int_max, int ext_min, int ext_max) {
+      if (ext_min > int_max || ext_max < int_min) {
+        return SpatialRelation.DISJOINT;
+      }
+      return SpatialRelation.INTERSECTS;
+    }
+
+    private boolean checkDisjoint(FlexCell nextFlexCell) {
+      int xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel];
+      int ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel];
+      SpatialRelation yIntersect = checkDisjointCoordinate(nextFlexCell.ymin, ymax, shapeFilterYMinInt, shapeFilterYMaxInt);
+      if (yIntersect == SpatialRelation.DISJOINT)
+        return true;
+      SpatialRelation xIntersect = checkDisjointCoordinate(nextFlexCell.xmin, xmax, shapeFilterXMinInt, shapeFilterXMaxInt);
+      if (xIntersect == SpatialRelation.DISJOINT)
+        return true;
+      return false;
+    }
+
     @Override
     public boolean hasNext() {
       thisCell = null;
@@ -425,10 +452,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
           nextFlexCell.cellStack.decode(nextFlexCell.cellLevel);
           //Get the relation of the bounding box with the cell without making the shape
           //If its cell is disjoint with the bounding-box of the shape, its definitely disjoint with the shape
-          rel = relateIntegerRectangle(nextFlexCell);
-          if (rel != SpatialRelation.DISJOINT || shapeFilterBoundingBox.getCrossesDateLine()) {
+          //For this purpose we can directly use ints and there is no need for double
+          if (!checkDisjoint(nextFlexCell) || shapeFilterBoundingBox.getCrossesDateLine()) {
             //Incase of Rectangle and Point the relation that we found is actually
-            if (!(shapeFilter instanceof Rectangle || shapeFilter instanceof Point) || (shapeFilterBoundingBox.getCrossesDateLine())) {
+            if ((shapeFilter instanceof Rectangle || shapeFilter instanceof Point) && !(shapeFilterBoundingBox.getCrossesDateLine())) {
+              rel = relateIntegerRectangle(nextFlexCell);
+            }else{
               rel = nextCell.getShape().relate(shapeFilter);
             }
             if (rel.intersects()) {
