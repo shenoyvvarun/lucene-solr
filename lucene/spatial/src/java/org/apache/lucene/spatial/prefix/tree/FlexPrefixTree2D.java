@@ -339,10 +339,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     private final FlexCell cell;
     private int nextCellNumber;
     private Shape shapeFilter;
-    private double shapeFilterXMin;
-    private double shapeFilterXMax;
-    private double shapeFilterYMin;
-    private double shapeFilterYMax;
+    private int shapeFilterXMin;
+    private int shapeFilterXMax;
+    private int shapeFilterYMin;
+    private int shapeFilterYMax;
     private Rectangle shapeFilterBoundingBox;
 
     protected FlexPrefixTreeIterator(FlexCell cell, BytesRef sharedTerm, int level) {
@@ -363,10 +363,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       if (shapeFilter != null) {
         //TODO this remains same for a given FPT and given shape
         shapeFilterBoundingBox = shapeFilter.getBoundingBox();
-        this.shapeFilterXMax = (shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX;
-        this.shapeFilterXMin = (shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX;
-        this.shapeFilterYMax = (shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY;
-        this.shapeFilterYMin = (shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY;
+        this.shapeFilterXMax = (int)((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterXMin = (int)((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterYMax = (int)((shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY);
+        this.shapeFilterYMin = (int)((shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY);
       }
       this.nextCellNumber = start;
       return this;
@@ -377,7 +377,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       term.bytes[term.offset + bytePos] = b;
     }
 
-    private SpatialRelation relateIntegerCoordinate(double int_min, double int_max, double ext_min, double ext_max) {
+    private SpatialRelation relateIntegerCoordinate(int int_min, int int_max, int ext_min, int ext_max) {
       if (ext_min > int_max || ext_max < int_min) {
         return SpatialRelation.DISJOINT;
       }
