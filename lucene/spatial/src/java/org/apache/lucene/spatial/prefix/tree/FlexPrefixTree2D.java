@@ -64,8 +64,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
   private final double intToDoubleY;
   private final double doubleToIntX;
   private final double doubleToIntY;
-  private final int newOriginX;
-  private final int newOriginY;
+  private final double newOriginX;
+  private final double newOriginY;
   private final Rectangle bounds;
 
   private final byte LEAF_BYTE = 0x01;
@@ -93,8 +93,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     this.xmin = 0;
     this.ymin = 0;
-    this.xmax = (1 << maxLevels);
-    this.ymax = (1 << maxLevels);
+    this.xmax = (1 << (maxLevels));
+    this.ymax = (1 << (maxLevels));
 
     this.gridSizes = new int[maxLevels + 1];
 
@@ -115,8 +115,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     intToDoubleY = (bounds.getMaxY() - bounds.getMinY()) / (ymax - ymin);
 
 
-    newOriginX = (int) ((0 - bounds.getMinX()) * doubleToIntX);
-    newOriginY = (int) ((0 - bounds.getMinY()) * doubleToIntY);
+    newOriginX = bounds.getMinX();
+    newOriginY = bounds.getMinY();
 
   }
 
@@ -195,6 +195,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     private int xmin;
     private int ymin;
+
+    boolean cornerCellX;
+    boolean cornerCellY;
 
     protected void setMinCornerCoordinates(int xmin, int ymin) {
       //Set the coordinates of bottom most corner
@@ -277,11 +280,17 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     private void makeShape() {
       BytesRef token = cellStack.term;
       cellStack.decode(cellLevel);//Decode the terms
-      double xmax = xmin + gridSizes[token.length] - newOriginX, ymax = ymin + gridSizes[token.length] - newOriginY;
-      double xmin = (this.xmin - newOriginX) * intToDoubleX;
-      double ymin = (this.ymin - newOriginY) * intToDoubleY;
-      xmax *= intToDoubleX;
-      ymax *= intToDoubleY;
+      double xmax = ((xmin + gridSizes[token.length]) * intToDoubleX) + newOriginX;
+      double ymax = ((ymin + gridSizes[token.length]) * intToDoubleY) + newOriginY;
+      double xmin = (this.xmin * intToDoubleX) + newOriginX;
+      double ymin = (this.ymin * intToDoubleY) + newOriginY;
+      if(!cornerCellX) {
+        xmax = Math.nextAfter(xmax,Double.NEGATIVE_INFINITY);
+      }
+
+      if(!cornerCellY) {
+        ymax = Math.nextAfter(ymax,Double.NEGATIVE_INFINITY);
+      }
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
 
@@ -304,6 +313,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       cellStack.invalidate(cellLevel); //Force re-decoding of the invalidated cell
       this.isShapeSet = false;
       this.isLeaf = false;
+      this.cornerCellX = false;
       this.shapeRel = null;
       this.cellStack.term.length = term.length;
       this.cellStack.term.bytes = term.bytes;
@@ -318,6 +328,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     private Cell reuse() {
       cellStack.invalidate(cellLevel);
       this.isShapeSet = false;
+      this.cornerCellX = false;
       this.isLeaf = false;
       this.shapeRel = null;
       return this;
@@ -345,6 +356,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     private int shapeFilterYMax;
     private Rectangle shapeFilterBoundingBox;
 
+
     protected FlexPrefixTreeIterator(FlexCell cell, BytesRef sharedTerm, int level) {
       this.term = sharedTerm;
       this.cell = cell;
@@ -364,7 +376,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         //TODO this remains same for a given FPT and given shape
         shapeFilterBoundingBox = shapeFilter.getBoundingBox();
         this.shapeFilterXMax = (int)((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX);
-        this.shapeFilterXMin = (int)((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterXMin = (int)((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX );
         this.shapeFilterYMax = (int)((shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY);
         this.shapeFilterYMin = (int)((shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY);
       }
@@ -377,7 +389,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       term.bytes[term.offset + bytePos] = b;
     }
 
-    private SpatialRelation relateIntegerCoordinate(int int_min, int int_max, int ext_min, int ext_max) {
+    private SpatialRelation relateIntegerCoordinate(double int_min, double int_max, double ext_min, double ext_max) {
       if (ext_min > int_max || ext_max < int_min) {
         return SpatialRelation.DISJOINT;
       }
@@ -393,8 +405,18 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     }
 
     private SpatialRelation relateIntegerRectangle(FlexCell nextFlexCell) {
-      int xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel];
-      int ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel];
+      int xmax;
+      if(!nextFlexCell.cornerCellX) {
+        xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel] - 1;
+      }else{
+        xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel];
+      }
+      int ymax;
+      if(!nextFlexCell.cornerCellY) {
+        ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel] - 1;
+      }else{
+        ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel];
+      }
       SpatialRelation yIntersect = relateIntegerCoordinate(nextFlexCell.ymin, ymax, shapeFilterYMin, shapeFilterYMax);
       if (yIntersect == SpatialRelation.DISJOINT)
         return SpatialRelation.DISJOINT;
@@ -428,7 +450,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
           rel = relateIntegerRectangle(nextFlexCell);
           if (rel != SpatialRelation.DISJOINT || shapeFilterBoundingBox.getCrossesDateLine()) {
             //Incase of Rectangle and Point the relation that we found is actually
-            if (!(shapeFilter instanceof Rectangle || shapeFilter instanceof Point) || (shapeFilterBoundingBox.getCrossesDateLine())) {
+            if (!(shapeFilter instanceof Rectangle || shapeFilter instanceof Point) || (shapeFilterBoundingBox.getCrossesDateLine()) || rel == SpatialRelation.WITHIN) {
               rel = nextCell.getShape().relate(shapeFilter);
             }
             if (rel.intersects()) {
@@ -488,6 +510,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       }
       //? The xmin,ymin needs to be set for the top cell. From there its decoded lazily a level at a time
       cells[0].setMinCornerCoordinates(xmin, ymin);
+      cells[0].cornerCellX = true;
+      cells[0].cornerCellY = true;
     }
 
     protected void decode(int cellLevel) {
@@ -508,6 +532,17 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         xmin += gridSizes[i + 1] * col;
         ymin += gridSizes[i + 1] * row;
         cells[i + 1].setMinCornerCoordinates(xmin, ymin);
+        if(cells[i].cornerCellX && col == numberOfSubCellsAsExponentOfTwo[i + 1]-1){
+          cells[i+1].cornerCellX = true;
+        }else{
+          cells[i+1].cornerCellX = false;
+        }
+        if(cells[i].cornerCellY && row == numberOfSubCellsAsExponentOfTwo[i + 1]-1){
+          cells[i+1].cornerCellY = true;
+        }else{
+          cells[i+1].cornerCellY = false;
+        }
+
       }
       if (lastDecodedLevel < cellLevel) {
         lastDecodedLevel = cellLevel;
