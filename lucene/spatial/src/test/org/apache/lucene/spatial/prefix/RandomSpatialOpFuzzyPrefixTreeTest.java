@@ -483,8 +483,12 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       //See if the correct answer is actually Contains, when the indexed shapes are adjacent,
       // creating a larger shape that contains the input shape.
       boolean pairTouches = shape1.relate(shape2).intersects();
-      if (!pairTouches)
-        return r;
+      if (!pairTouches) {
+        if(isAdjacent(shape1,shape2)) {
+          return CONTAINS;
+        }
+        else return r;
+      }
       //test all 4 corners
       // Note: awkwardly, we use a non-geo context for this because in geo, -180 & +180 are the same place, which means
       // that "other" might wrap the world horizontally and yet all it's corners could be in shape1 (or shape2) even
@@ -496,6 +500,17 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
           && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMaxY()) )
         return CONTAINS;
       return r;
+    }
+
+    private boolean isAdjacent(Shape shape1,Shape shape2) {
+      if(Math.nextAfter(shape1.getBoundingBox().getMaxX(),Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinX() ||Math.nextAfter(shape2.getBoundingBox().getMaxX(),Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinX() ){
+        return true;
+      }
+      if(Math.nextAfter(shape1.getBoundingBox().getMaxY(),Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinY() ||Math.nextAfter(shape2.getBoundingBox().getMaxY(),Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinY() ){
+        return true;
+      }
+
+      return false;
     }
 
     private boolean cornerContainsNonGeo(double x, double y) {
