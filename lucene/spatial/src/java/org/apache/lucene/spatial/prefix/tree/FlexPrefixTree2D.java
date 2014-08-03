@@ -284,12 +284,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       double ymax = ((ymin + gridSizes[token.length]) * intToDoubleY) + newOriginY;
       double xmin = (this.xmin * intToDoubleX) + newOriginX;
       double ymin = (this.ymin * intToDoubleY) + newOriginY;
-      if(!cornerCellX) {
-        xmax = Math.nextAfter(xmax,Double.NEGATIVE_INFINITY);
+      if (!cornerCellX) {
+        xmax = Math.nextAfter(xmax, Double.NEGATIVE_INFINITY);
       }
 
-      if(!cornerCellY) {
-        ymax = Math.nextAfter(ymax,Double.NEGATIVE_INFINITY);
+      if (!cornerCellY) {
+        ymax = Math.nextAfter(ymax, Double.NEGATIVE_INFINITY);
       }
       gridRectangle.reset(xmin, xmax, ymin, ymax);
     }
@@ -375,10 +375,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       if (shapeFilter != null) {
         //TODO this remains same for a given FPT and given shape
         shapeFilterBoundingBox = shapeFilter.getBoundingBox();
-        this.shapeFilterXMax = (int)((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX);
-        this.shapeFilterXMin = (int)((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX );
-        this.shapeFilterYMax = (int)((shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY);
-        this.shapeFilterYMin = (int)((shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY);
+        this.shapeFilterXMax = (int) ((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterXMin = (int) ((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToIntX);
+        this.shapeFilterYMax = (int) ((shapeFilterBoundingBox.getMaxY() - bounds.getMinY()) * doubleToIntY);
+        this.shapeFilterYMin = (int) ((shapeFilterBoundingBox.getMinY() - bounds.getMinY()) * doubleToIntY);
       }
       this.nextCellNumber = start;
       return this;
@@ -389,7 +389,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       term.bytes[term.offset + bytePos] = b;
     }
 
-    private SpatialRelation relateIntegerCoordinate(double int_min, double int_max, double ext_min, double ext_max) {
+    private SpatialRelation relateIntegerCoordinate(int int_min, int int_max, int ext_min, int ext_max) {
       if (ext_min > int_max || ext_max < int_min) {
         return SpatialRelation.DISJOINT;
       }
@@ -406,15 +406,15 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     private SpatialRelation relateIntegerRectangle(FlexCell nextFlexCell) {
       int xmax;
-      if(!nextFlexCell.cornerCellX) {
+      if (!nextFlexCell.cornerCellX) {
         xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel] - 1;
-      }else{
+      } else {
         xmax = nextFlexCell.xmin + gridSizes[nextFlexCell.cellLevel];
       }
       int ymax;
-      if(!nextFlexCell.cornerCellY) {
+      if (!nextFlexCell.cornerCellY) {
         ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel] - 1;
-      }else{
+      } else {
         ymax = nextFlexCell.ymin + gridSizes[nextFlexCell.cellLevel];
       }
       SpatialRelation yIntersect = relateIntegerCoordinate(nextFlexCell.ymin, ymax, shapeFilterYMin, shapeFilterYMax);
@@ -445,28 +445,34 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         } else {
           FlexCell nextFlexCell = (FlexCell) nextCell;
           nextFlexCell.cellStack.decode(nextFlexCell.cellLevel);
-          //Get the relation of the bounding box with the cell without making the shape
-          //If its cell is disjoint with the bounding-box of the shape, its definitely disjoint with the shape
-          rel = relateIntegerRectangle(nextFlexCell);
-          if (rel != SpatialRelation.DISJOINT || shapeFilterBoundingBox.getCrossesDateLine()) {
-            //Incase of Rectangle and Point the relation that we found is actually
-            if (!(shapeFilter instanceof Rectangle || shapeFilter instanceof Point) || (shapeFilterBoundingBox.getCrossesDateLine()) || rel == SpatialRelation.WITHIN) {
-              rel = nextCell.getShape().relate(shapeFilter);
+          rel = getSpatialRelation(nextFlexCell);
+          if (rel.intersects()) {
+            nextCell.setShapeRel(rel);
+            if (rel == SpatialRelation.WITHIN)
+              nextCell.setLeaf(); // Since the relation is a within no further decomposition will be required
+            if (shapeFilter instanceof Point) {
+              stopLevelIteration();
             }
-            if (rel.intersects()) {
-              nextCell.setShapeRel(rel);
-              if (rel == SpatialRelation.WITHIN)
-                nextCell.setLeaf(); // Since the relation is a within no further decomposition will be required
-              if (shapeFilter instanceof Point) {
-                stopLevelIteration();
-              }
-              return true;
-            }
+            return true;
           }
         }
       }
       return false;
     }
+
+    private SpatialRelation getSpatialRelation(FlexCell nextFlexCell) {
+      SpatialRelation rel = null;
+      if (!shapeFilterBoundingBox.getCrossesDateLine()) {
+        rel = relateIntegerRectangle(nextFlexCell);
+        if (!(shapeFilter instanceof Rectangle || shapeFilter instanceof Point) || (shapeFilterBoundingBox.getCrossesDateLine()) || rel == SpatialRelation.WITHIN)
+          rel = null;
+      }
+      if (rel == null) {
+        rel = nextCell.getShape().relate(shapeFilter);
+      }
+      return rel;
+    }
+
 
     private void stopLevelIteration() {
       nextCellNumber = endCellNumber + 1;
@@ -532,15 +538,15 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         xmin += gridSizes[i + 1] * col;
         ymin += gridSizes[i + 1] * row;
         cells[i + 1].setMinCornerCoordinates(xmin, ymin);
-        if(cells[i].cornerCellX && col == numberOfSubCellsAsExponentOfTwo[i + 1]-1){
-          cells[i+1].cornerCellX = true;
-        }else{
-          cells[i+1].cornerCellX = false;
+        if (cells[i].cornerCellX && col == numberOfSubCellsAsExponentOfTwo[i + 1] - 1) {
+          cells[i + 1].cornerCellX = true;
+        } else {
+          cells[i + 1].cornerCellX = false;
         }
-        if(cells[i].cornerCellY && row == numberOfSubCellsAsExponentOfTwo[i + 1]-1){
-          cells[i+1].cornerCellY = true;
-        }else{
-          cells[i+1].cornerCellY = false;
+        if (cells[i].cornerCellY && row == numberOfSubCellsAsExponentOfTwo[i + 1] - 1) {
+          cells[i + 1].cornerCellY = true;
+        } else {
+          cells[i + 1].cornerCellY = false;
         }
 
       }
