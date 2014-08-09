@@ -24,7 +24,6 @@ import com.spatial4j.core.shape.Point;
 import com.spatial4j.core.shape.Rectangle;
 import com.spatial4j.core.shape.Shape;
 import com.spatial4j.core.shape.ShapeCollection;
-import com.spatial4j.core.shape.SpatialRelation;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Store;
@@ -42,7 +41,6 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.carrotsearch.randomizedtesting.RandomizedTest.randomBoolean;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomIntBetween;
 
 public class SpatialPrefixTreeTest extends SpatialTestCase {
@@ -61,7 +59,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
 
   @Test
   public void testCellTraverse() {
-    trie = new GeohashPrefixTree(ctx,4);
+    trie = new GeohashPrefixTree(ctx, 4);
 
     Cell prevC = null;
     Cell c = trie.getWorldCell();
@@ -74,9 +72,9 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
       while (subCellsIter.hasNext()) {
         subCells.add(subCellsIter.next());
       }
-      c = subCells.get(random().nextInt(subCells.size()-1));
-      
-      assertEquals(prevC.getLevel()+1,c.getLevel());
+      c = subCells.get(random().nextInt(subCells.size() - 1));
+
+      assertEquals(prevC.getLevel() + 1, c.getLevel());
       Rectangle prevNShape = (Rectangle) prevC.getShape();
       Shape s = c.getShape();
       Rectangle sbox = s.getBoundingBox();
@@ -84,6 +82,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
       assertTrue(prevNShape.getHeight() > sbox.getHeight());
     }
   }
+
   /**
    * A PrefixTree pruning optimization gone bad, applicable when optimize=true.
    * See <a href="https://issues.apache.org/jira/browse/LUCENE-4770>LUCENE-4770</a>.
@@ -122,22 +121,24 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
 
   @Test
   @Repeat(iterations = ITERATIONS)
-  public void testRandomCellRelationship(){
+  public void testRandomCellRelationship() {
 
-    int maxLevels = randomIntBetween(1,12);
+    int maxLevels = randomIntBetween(3, 20);
     SpatialContextFactory ctxFactory = new SpatialContextFactory();
     ctxFactory.geo = false;
     ctxFactory.worldBounds = ctx.getWorldBounds();
     SpatialContext ctx = ctxFactory.newSpatialContext();
-    assert ctx!= null;
-    trie = new FlexPrefixTree2D(ctx,maxLevels);
+    assert ctx != null;
+    trie = new FlexPrefixTree2D(ctx, maxLevels);
     Rectangle WB = ctx.getWorldBounds();
-    Point p = ctx.makePoint(randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()),randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
+    Point p = ctx.makePoint(randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()), randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
     //Get the world Cell
     Cell cell = trie.getWorldCell();
-    CellIterator itr = cell.getNextLevelCells(null);
+    CellIterator itr = cell.getNextLevelCells(p);
 
-    if(maxLevels>1) {
+    if (itr.hasNext()) {
+      cell = itr.next();
+      itr = cell.getNextLevelCells(null);
       while (true) {
         //Get the cell that contains the point
         ArrayList<Shape> cells = new ArrayList<Shape>();

@@ -63,26 +63,31 @@ import static com.spatial4j.core.shape.SpatialRelation.DISJOINT;
 import static com.spatial4j.core.shape.SpatialRelation.INTERSECTS;
 import static com.spatial4j.core.shape.SpatialRelation.WITHIN;
 
-/** Randomized PrefixTree test that considers the fuzziness of the
- * results introduced by grid approximation. */
+/**
+ * Randomized PrefixTree test that considers the fuzziness of the
+ * results introduced by grid approximation.
+ */
 public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
-  static final int ITERATIONS  = 10;
+  static final int ITERATIONS = 10;
 
   private SpatialPrefixTree grid;
   private SpatialContext ctx2D;
 
   public void setupGrid(int maxLevels) throws IOException {
-    switch(1) {
-      case 1: setupFlexGrid(maxLevels);
-              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(false);
-              break;
-      case 2: setupQuadGrid(maxLevels);
-              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(randomBoolean());
-              break;
-      case 3: setupGeohashGrid(maxLevels);
-              ((RecursivePrefixTreeStrategy)strategy).setPruneLeafyBranches(randomBoolean());
-              break;
+    switch (1) {
+      case 1:
+        setupFlexGrid(maxLevels);
+        ((RecursivePrefixTreeStrategy) strategy).setPruneLeafyBranches(false);
+        break;
+      case 2:
+        setupQuadGrid(maxLevels);
+        ((RecursivePrefixTreeStrategy) strategy).setPruneLeafyBranches(randomBoolean());
+        break;
+      case 3:
+        setupGeohashGrid(maxLevels);
+        ((RecursivePrefixTreeStrategy) strategy).setPruneLeafyBranches(randomBoolean());
+        break;
     }
     setupCtx2D(ctx);
     //((PrefixTreeStrategy) strategy).setDistErrPct(0);//fully precise to grid
@@ -123,6 +128,10 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
     //A fairly shallow grid, and default 2.5% distErrPct
     if (maxLevels == -1)
       maxLevels = randomIntBetween(1, 8);//max 64k cells (4^8), also 256*256
+    int[] numberOfCells = new int[maxLevels + 1];
+    for (int i = 0; i < maxLevels; ++i) {
+      numberOfCells[i] = randomIntBetween(1, 3);
+    }
     this.grid = new FlexPrefixTree2D(ctx, maxLevels);
     this.strategy = new RecursivePrefixTreeStrategy(grid, getClass().getSimpleName());
   }
@@ -157,7 +166,9 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
     doTest(SpatialOperation.Contains);
   }
 
-  /** See LUCENE-5062, {@link ContainsPrefixTreeFilter#multiOverlappingIndexedShapes}. */
+  /**
+   * See LUCENE-5062, {@link ContainsPrefixTreeFilter#multiOverlappingIndexedShapes}.
+   */
   @Test
   public void testContainsPairOverlap() throws IOException {
     setupQuadGrid(3);
@@ -183,7 +194,8 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
     assertTrue(searchResults.numFound == 0);
   }
 
-  @Test /** LUCENE-4916 */
+  @Test
+  /** LUCENE-4916 */
   public void testWithinLeafApproxRule() throws IOException {
     setupQuadGrid(2);//4x4 grid
     //indexed shape will simplify to entire right half (2 top cells)
@@ -197,13 +209,13 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
     // from the query and thus not a match.
     assertTrue(executeQuery(strategy.makeQuery(
         new SpatialArgs(SpatialOperation.IsWithin, ctx.makeRectangle(38, 192, -72, 56))
-    ), 1).numFound==0);//no-match
+    ), 1).numFound == 0);//no-match
 
     //this time the rect is a little bigger and is considered a match. It's a
     // an acceptable false-positive because of the grid approximation.
     assertTrue(executeQuery(strategy.makeQuery(
         new SpatialArgs(SpatialOperation.IsWithin, ctx.makeRectangle(38, 192, -72, 80))
-    ), 1).numFound==1);//match
+    ), 1).numFound == 1);//match
   }
 
   @Test
@@ -226,8 +238,8 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       Collection<Shape> shapes;
       if (shape instanceof ShapePair) {
         shapes = new ArrayList<>(2);
-        shapes.add(((ShapePair)shape).shape1);
-        shapes.add(((ShapePair)shape).shape2);
+        shapes.add(((ShapePair) shape).shape1);
+        shapes.add(((ShapePair) shape).shape2);
       } else {
         shapes = Collections.singleton(shape);
       }
@@ -303,7 +315,9 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 
       final Shape queryShape;
       switch (randomInt(10)) {
-        case 0: queryShape = randomPoint(); break;
+        case 0:
+          queryShape = randomPoint();
+          break;
 // LUCENE-5549
 //TODO debug: -Dtests.method=testWithin -Dtests.multiplier=3 -Dtests.seed=5F5294CE2E075A3E:AAD2F0F79288CA64
 //        case 1:case 2:case 3:
@@ -311,7 +325,8 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
 //            queryShape = randomShapePairRect(!biasContains);//invert biasContains for query side
 //            break;
 //          }
-        default: queryShape = randomRectangle();
+        default:
+          queryShape = randomRectangle();
       }
       final Shape queryShapeGS = gridSnap(queryShape);
 
@@ -420,11 +435,11 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       Cell cell = cells.next();
       if (!cell.isLeaf())
         continue;
-      if(cell instanceof LegacyCell) {
+      if (cell instanceof LegacyCell) {
         cellShapes.add(cell.getShape());
-      }else{
-        Rectangle rect = (Rectangle)cell.getShape();
-        cellShapes.add(ctx.makeRectangle(rect.getMinX(),rect.getMaxX(),rect.getMinY(),rect.getMaxY()));
+      } else {
+        Rectangle rect = (Rectangle) cell.getShape();
+        cellShapes.add(ctx.makeRectangle(rect.getMinX(), rect.getMaxX(), rect.getMinY(), rect.getMaxY()));
       }
     }
     return new ShapeCollection<>(cellShapes, ctx).getBoundingBox();
@@ -484,29 +499,28 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
       // creating a larger shape that contains the input shape.
       boolean pairTouches = shape1.relate(shape2).intersects();
       if (!pairTouches) {
-        if(isAdjacent(shape1,shape2)) {
+        if (isAdjacent(shape1, shape2)) {
           return CONTAINS;
-        }
-        else return r;
+        } else return r;
       }
       //test all 4 corners
       // Note: awkwardly, we use a non-geo context for this because in geo, -180 & +180 are the same place, which means
       // that "other" might wrap the world horizontally and yet all it's corners could be in shape1 (or shape2) even
       // though shape1 is only adjacent to the dateline. I couldn't think of a better way to handle this.
-      Rectangle oRect = (Rectangle)other;
+      Rectangle oRect = (Rectangle) other;
       if (cornerContainsNonGeo(oRect.getMinX(), oRect.getMinY())
           && cornerContainsNonGeo(oRect.getMinX(), oRect.getMaxY())
           && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMinY())
-          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMaxY()) )
+          && cornerContainsNonGeo(oRect.getMaxX(), oRect.getMaxY()))
         return CONTAINS;
       return r;
     }
 
-    private boolean isAdjacent(Shape shape1,Shape shape2) {
-      if(Math.nextAfter(shape1.getBoundingBox().getMaxX(),Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinX() ||Math.nextAfter(shape2.getBoundingBox().getMaxX(),Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinX() ){
+    private boolean isAdjacent(Shape shape1, Shape shape2) {
+      if (Math.nextAfter(shape1.getBoundingBox().getMaxX(), Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinX() || Math.nextAfter(shape2.getBoundingBox().getMaxX(), Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinX()) {
         return true;
       }
-      if(Math.nextAfter(shape1.getBoundingBox().getMaxY(),Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinY() ||Math.nextAfter(shape2.getBoundingBox().getMaxY(),Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinY() ){
+      if (Math.nextAfter(shape1.getBoundingBox().getMaxY(), Double.POSITIVE_INFINITY) == shape2.getBoundingBox().getMinY() || Math.nextAfter(shape2.getBoundingBox().getMaxY(), Double.POSITIVE_INFINITY) == shape1.getBoundingBox().getMinY()) {
         return true;
       }
 
