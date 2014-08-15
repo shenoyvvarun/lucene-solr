@@ -66,12 +66,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
         //Get the leading terms
         for (i = 0; i < levels.length; ++i) {
           if (levels[i].contains("*")) {
+            levels[i] = levels[i].replace("*", "");
             repeatLevel = Integer.parseInt(levels[i]);
           }
           numberOfSubCells[i] = Integer.parseInt(levels[i]);
           maxLevels -= (numberOfSubCells[i]-1);
         }
-        levels[i] = levels[i].replace("*", "");
         for (int j = i; j < MAX_LEVELS_POSSIBLE; ++j) {
           numberOfSubCells[j] = repeatLevel;
           maxLevels -= (numberOfSubCells[i]-1);
@@ -138,8 +138,8 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     //Compute the rest
     for (int i = 1; i < gridSizes.length; i++) {
-      division = 1 << this.numberOfSubCellsAsExponentOfFour[i - 1];
-      gridSizes[i] = (gridSizes[i - 1] / division);
+      division = this.numberOfSubCellsAsExponentOfFour[i - 1];
+      gridSizes[i] = (gridSizes[i - 1] >> division);
     }
 
     doubleToInt = Math.min((1 << maxLevels) / (bounds.getMaxY() - bounds.getMinY()), (1 << maxLevels) / (bounds.getMaxX() - bounds.getMinX()));
@@ -174,9 +174,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
   public int getLevelForDistance(double dist) {
     if (dist == 0)//short circuit
       return maxLevels;
-    for (int i = 0; i < maxLevels - 1; i++) {
+    for (int i = 1; i < maxLevels - 1; i++) {
       if (dist > (gridSizes[i]*intToDouble)) {
-        return i+1;
+        return i;
       }
     }
     return maxLevels;
@@ -444,10 +444,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     protected FlexPrefixTreeIterator(FlexCell cell, BytesRef sharedTerm, int level) {
       this.term = sharedTerm;
       this.cell = cell;
-      if (level < numberOfSubCellsAsExponentOfFour.length) {
-        this.endCellNumber = ((1 << numberOfSubCellsAsExponentOfFour[level]) * (1 << numberOfSubCellsAsExponentOfFour[level])) + 1;
+      if (level < maxLevels) {
+        this.endCellNumber = (1 <<( numberOfSubCellsAsExponentOfFour[level] + numberOfSubCellsAsExponentOfFour[level])) + 1;
       } else {
-        this.endCellNumber = 255;
+        this.endCellNumber = 0;
       }
       this.bytePos = level;
     }
