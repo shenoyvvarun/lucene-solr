@@ -30,13 +30,13 @@ doc.maker=org.apache.lucene.benchmark.byTask.feeds.SpatialDocMaker
 #spatial.prefixTree=geohash
 #spatial.prefixTree=quad
 spatial.prefixTree=flex
-spatial.levelPattern=3,1*,3
+spatial.levelPattern=3*
 # 1m or better
 spatial.maxDistErr = 0.000009
 spatial.docPointsOnly=true
 spatial.pruneLeafyBranches=false
 #spatial.distErrPct=.25
-codec.postingsFormat=Direct
+#codec.postingsFormat=Direct
 
 ### Source & Doc
 content.source=org.apache.lucene.benchmark.byTask.feeds.LineDocSource
