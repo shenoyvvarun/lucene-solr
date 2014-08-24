@@ -75,7 +75,7 @@ public class RandomSpatialOpFuzzyPrefixTreeTest extends StrategyTestCase {
   private SpatialContext ctx2D;
 
   public void setupGrid(int maxLevels) throws IOException {
-    switch (1) {
+    switch (randomIntBetween(1, 3)) {
       case 1:
         setupFlexGrid(maxLevels);
         ((RecursivePrefixTreeStrategy) strategy).setPruneLeafyBranches(false);

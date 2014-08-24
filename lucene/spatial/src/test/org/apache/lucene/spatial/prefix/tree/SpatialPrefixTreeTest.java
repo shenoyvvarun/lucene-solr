@@ -41,6 +41,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.randomBoolean;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomIntBetween;
 
 public class SpatialPrefixTreeTest extends SpatialTestCase {
@@ -160,33 +161,34 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
       }
     }
   }
-/*
+
   @Test
   @Repeat(iterations = ITERATIONS)
-  public void testRandomEdgeCellIntersectionsCount(){
+  public void testRandomEdgeCellIntersectionsCount() {
 
-    int maxLevels = randomIntBetween(1,12);
+    int maxLevels = randomIntBetween(1, 12);
     SpatialContextFactory ctxFactory = new SpatialContextFactory();
     ctxFactory.geo = false;
     ctxFactory.worldBounds = ctx.getWorldBounds();
     SpatialContext ctx = ctxFactory.newSpatialContext();
-    assert ctx!= null;
-    trie = new FlexPrefixTree2D(ctx,maxLevels);
+    assert ctx != null;
+    trie = new FlexPrefixTree2D(ctx, maxLevels);
     Rectangle WB = ctx.getWorldBounds();
     double x = WB.getMaxX();
     double y = WB.getMinY();
-    for(int i=1;i<maxLevels;++i){
-      if(randomBoolean()){
-        x /= 2; //Since FPT takes power of two
+    //Make sure that the point lies on the edge.
+    for (int i = 1; i < maxLevels; ++i) {
+      if (randomBoolean()) {
+        x /= 2; //Since FPT takes power of 2
       }
-      if(randomBoolean()){
+      if (randomBoolean()) {
         y /= 2;
       }
     }
 
-    Point p= ctx.makePoint(x,y);
+    Point p = ctx.makePoint(x, y);
     Cell c = trie.getWorldCell();
-    if(maxLevels>1) {
+    if (maxLevels > 1) {
       checkNoOfMatches(p, c);
       //Check the centre of the grid TODO make it more points on the edge of the grid
       p = ctx.makePoint((WB.getMaxX() + WB.getMinX()) / 2, (WB.getMaxY() + WB.getMinY()) / 2);
@@ -194,14 +196,14 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
     }
   }
 
-  private void checkNoOfMatches(Point p,Cell c){
+  private void checkNoOfMatches(Point p, Cell c) {
     CellIterator itr = c.getNextLevelCells(p);
-    int count=0;
-    while(itr.hasNext()){
+    int count = 0;
+    while (itr.hasNext()) {
       itr.next();
       ++count;
     }
-    assertEquals(1,count);
+    assertEquals(1, count);
 
-  }*/
+  }
 }

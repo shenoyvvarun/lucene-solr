@@ -28,7 +28,7 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 
 
-public class FlexPrefixTree2D extends SpatialPrefixTree {
+public class FlexPrefixTree2D extends SpatialPrefixTree{
 
   /**
    * Factory for creating {@link FlexPrefixTree2D} instances with useful defaults
@@ -37,6 +37,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     public static final String LEVEL_PATTERN = "levelPattern";
     public static final String LEVEL_PATTERN_REGEX = "(\\d,)*(\\d\\*)(,\\d)*"; //only the number of cells to be repeated must be specified
+
     @Override
     protected void init(Map<String, String> args, SpatialContext ctx) {
       this.args = args;
@@ -59,47 +60,45 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     protected SpatialPrefixTree newSPT() {
       String levelPattern = args.get(LEVEL_PATTERN);
       if (levelPattern != null && levelPattern.matches(LEVEL_PATTERN_REGEX)) {
-        int maxLevels=this.maxLevels != null ? this.maxLevels : MAX_LEVELS_POSSIBLE;
-        int []numberOfSubCells=null;
-        String []levels = levelPattern.split(",");
+        int maxLevels = this.maxLevels != null ? this.maxLevels : MAX_LEVELS_POSSIBLE;
+        int[] numberOfSubCells = null;
+        String[] levels = levelPattern.split(",");
         numberOfSubCells = new int[MAX_LEVELS_POSSIBLE];
-        int []temp = new int[levels.length];
-        int repeatLevel=levelPatternToIntArray(levels,temp);
-        int numberOfTimesTobeRepeated=maxLevels-(sum(temp)-temp[repeatLevel]);
-        System.arraycopy(temp,0,numberOfSubCells,0,repeatLevel);
-        for(int i=0;i<numberOfTimesTobeRepeated;++i){
-          numberOfSubCells[repeatLevel+i] = temp[repeatLevel];
+        int[] temp = new int[levels.length];
+        int repeatLevel = levelPatternToIntArray(levels, temp);
+        int numberOfTimesTobeRepeated = maxLevels - (sum(temp) - temp[repeatLevel]);
+        System.arraycopy(temp, 0, numberOfSubCells, 0, repeatLevel);
+        for (int i = 0; i < numberOfTimesTobeRepeated; ++i) {
+          numberOfSubCells[repeatLevel + i] = temp[repeatLevel];
         }
-        System.arraycopy(temp,repeatLevel+1,numberOfSubCells,(repeatLevel+numberOfTimesTobeRepeated),(temp.length-(repeatLevel+1)));
-        maxLevels=(temp.length-temp[repeatLevel])+numberOfTimesTobeRepeated;
+        System.arraycopy(temp, repeatLevel + 1, numberOfSubCells, (repeatLevel + numberOfTimesTobeRepeated), (temp.length - (repeatLevel + 1)));
+        maxLevels = (temp.length - temp[repeatLevel]) + numberOfTimesTobeRepeated;
         return new FlexPrefixTree2D(ctx, ctx.getWorldBounds(), maxLevels, numberOfSubCells);
       }
       return new FlexPrefixTree2D(ctx,
           this.maxLevels != null ? maxLevels : MAX_LEVELS_POSSIBLE);
     }
 
-    private int sum(int []toBeSummed) {
-      int sum=0;
-      for(int i:toBeSummed) {
-        sum+=i;
+    private int sum(int[] toBeSummed) {
+      int sum = 0;
+      for (int i : toBeSummed) {
+        sum += i;
       }
       return sum;
     }
 
-    private int levelPatternToIntArray(String []numberOfCellsString, int []numberOfCellsInt) {
+    private int levelPatternToIntArray(String[] numberOfCellsString, int[] numberOfCellsInt) {
       int repeatLevel = 0;
-      for(int i=0;i<numberOfCellsString.length;++i) {
-        if(numberOfCellsString[i].contains("*")) {
-          numberOfCellsString[i] = numberOfCellsString[i].replace("*","");
+      for (int i = 0; i < numberOfCellsString.length; ++i) {
+        if (numberOfCellsString[i].contains("*")) {
+          numberOfCellsString[i] = numberOfCellsString[i].replace("*", "");
           repeatLevel = i;
         }
-        numberOfCellsInt[i]=Integer.parseInt(numberOfCellsString[i]);
+        numberOfCellsInt[i] = Integer.parseInt(numberOfCellsString[i]);
       }
       return repeatLevel;
     }
   }
-
-
 
   public static final int MAX_LEVELS_POSSIBLE = 30; //32 bits, 31 bits for +ve and 30 shifts to attain max power of 2
 
@@ -107,7 +106,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
   private final int[] numberOfSubCellsAsExponentOfFour;
   private final int[] gridSizes;
-
 
   //The world bounds for the grid
   private final int xMin;
@@ -123,15 +121,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
   private final byte LEAF_BYTE = 0x01;
   private final byte START_CELL_NUMBER = 0x02;
+  private boolean extendedPointSpecialization=false;
 
 
-  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels) {
     this(ctx, bounds, maxLevels, null);
   }
 
-  //Do we need maxlevels? SubcellsPerLevel should be enough
-  //Can we provide a default cell division of 4
   public FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels, int[] numberOfSubCellsAsExponentOfTwo) {
     super(ctx, maxLevels);
     if (numberOfSubCellsAsExponentOfTwo == null) {
@@ -170,18 +166,22 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
   private int getMaxLevelsFromPowersOfFour(int[] numberOfCellsAsExponentOfFour) {
     int sum = 0;
-    for (int i=0;i <maxLevels;++i) {
+    for (int i = 0; i < maxLevels; ++i) {
+      if(numberOfCellsAsExponentOfFour[i]>4) {
+        throw new RuntimeException("Cannot accommodate more than 64 subCells per level");
+      }
+      if(numberOfCellsAsExponentOfFour[i]==4) {
+        extendedPointSpecialization = true;
+      }
       sum += numberOfCellsAsExponentOfFour[i];
     }
     return sum;
   }
 
-  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx) {
     this(ctx, DEFAULT_MAX_LEVELS);
   }
 
-  //The API will change- This is temporary for tests to pass
   public FlexPrefixTree2D(SpatialContext ctx, int maxLevels) {
     this(ctx, ctx.getWorldBounds(), maxLevels, null);
   }
@@ -191,7 +191,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
     if (dist == 0)//short circuit
       return maxLevels;
     for (int i = 0; i < maxLevels - 1; i++) {
-      if (dist > (gridSizes[i]*intToDouble)) {
+      if (dist > (gridSizes[i] * intToDouble)) {
         return i;
       }
     }
@@ -237,12 +237,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
   @Override
   public String toString() {
-    StringBuilder subcells = new StringBuilder();
-    for(int i=0;i<maxLevels;++i) {
-      subcells.append(numberOfSubCellsAsExponentOfFour[i]);
-      subcells.append("-");
+    StringBuilder subCells = new StringBuilder();
+    for (int i = 0; i < maxLevels; ++i) {
+      subCells.append(numberOfSubCellsAsExponentOfFour[i]);
+      subCells.append("-");
     }
-    return getClass().getSimpleName() + "(maxLevels:" + maxLevels + ",ctx:" + ctx +" ,NumberOfSubCells:"+subcells.toString()+")";
+    return getClass().getSimpleName() + "(maxLevels:" + maxLevels + ",ctx:" + ctx + " ,NumberOfSubCells:" + subCells.toString() + ")";
   }
 
   /**
@@ -267,10 +267,10 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       return getShape() + "";
     }
 
-    protected void setMinCornerCoordinates(int xmin, int ymin) {
+    protected void setMinCornerCoordinates(int xMin, int yMin) {
       //Set the coordinates of bottom most corner
-      this.xMin = xmin;
-      this.yMin = ymin;
+      this.xMin = xMin;
+      this.yMin = yMin;
     }
 
     protected FlexCell(FlexCell cell, CellStack cells, int level) {
@@ -307,6 +307,9 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     @Override
     public BytesRef getTokenBytesWithLeaf(BytesRef result) {
+      if(FlexPrefixTree2D.this.extendedPointSpecialization ) {
+        throw new RuntimeException("Indexing 256 subCells per level is only Points and no Leaf is present for a point");
+      }
       result = getTokenBytesNoLeaf(result);
       if (!isLeaf)
         return result;
@@ -400,7 +403,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       return this;
     }
 
-
     private SpatialRelation relateIntegerCoordinate(int int_min, int int_max, int ext_min, int ext_max) {
       if (ext_min > int_max || ext_max < int_min) {
         return SpatialRelation.DISJOINT;
@@ -440,8 +442,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       return SpatialRelation.INTERSECTS;
     }
 
-  }
-
+  } //Class FlexCell
 
   /**
    * An Iterator for FlexCells. This iterator reuses cells at a level and iterates over the siblings
@@ -451,7 +452,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     private final BytesRef term;
     private final int bytePos;
-    private final int endCellNumber;
+    private int endCellNumber;
     private final FlexCell cell;
     private int nextCellNumber;
     private Shape shapeFilter;
@@ -461,7 +462,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       this.term = sharedTerm;
       this.cell = cell;
       if (level < maxLevels) {
-        this.endCellNumber = (1 <<( numberOfSubCellsAsExponentOfFour[level] + numberOfSubCellsAsExponentOfFour[level])) + 1;
+        this.endCellNumber = (1 << (numberOfSubCellsAsExponentOfFour[level] + numberOfSubCellsAsExponentOfFour[level])) + 1;
       } else {
         this.endCellNumber = 0;
       }
@@ -478,6 +479,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       this.shapeFilter = shapeFilter;
       this.cell.cellStack.findIntegerBoundingBox(shapeFilter);
       this.nextCellNumber = start;
+      if(shapeFilter instanceof Point){
+        this.nextCellNumber = 0;
+      }else{
+        this.nextCellNumber = start;
+      }
       return this;
     }
 
@@ -545,7 +551,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       ++nextCellNumber;
       return true;
     }
-  }
+  }//Class FlexPrefixTreeIterator
 
   /**
    * A stack of flexCells with the following characteristics
@@ -617,7 +623,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       }
     }
 
-
     /**
      * Invalidates the decoding of a cell forcing decoding to happen again
      *
@@ -627,5 +632,5 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       lastDecodedLevel = Math.max(cellLevel - 1, 0); //Note: Cell at level 0 is always decoded.
     }
 
-  }
+  }//Class CellStack
 }
