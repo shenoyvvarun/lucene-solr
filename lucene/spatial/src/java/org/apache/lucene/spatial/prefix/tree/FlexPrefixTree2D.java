@@ -28,10 +28,19 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 
 
-public class FlexPrefixTree2D extends SpatialPrefixTree{
+/**
+ * Spatial Prefix Tree which allows variable number of cells per level. This Spatial Prefix
+ * Tree can be used to make useful trade-offs between size of the index and search speed.
+ */
+public class FlexPrefixTree2D extends SpatialPrefixTree {
 
   /**
-   * Factory for creating {@link FlexPrefixTree2D} instances with useful defaults
+   * Factory for creating {@link FlexPrefixTree2D} instances with useful defaults. The factory takes as
+   * an argument a "levelPattern" which dictates the number of sub-cells per level which can be used to
+   * control the way the world is divided. The levelPattern is expressed as powers of four and currently supports up-to 64
+   * cells per level. The division to be repeated must be specified in the levelPattern with "*".
+   * Eg. 3,1*,3 specifies that the top and bottom levels is divided into 64 cells and the remaining levels
+   * are divided into 4 cells.
    */
   public static class Factory extends SpatialPrefixTreeFactory {
 
@@ -133,6 +142,13 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     this.pointsOnlySpecialization=pointsOnly;
   }
 
+  /**
+   * @param ctx                              Geo-spatial context
+   * @param bounds                           world bounds to be indexed
+   * @param maxLevels
+   * @param numberOfSubCellsAsExponentOfFour the number of sub-cells per level expressed as power of two. If this parameter is null
+   *                                         then the each cell would have 4 sub-cells.
+   */
   public FlexPrefixTree2D(SpatialContext ctx, Rectangle bounds, int maxLevels, int[] numberOfSubCellsAsExponentOfFour) {
     super(ctx, maxLevels);
     if (numberOfSubCellsAsExponentOfFour == null) {
@@ -248,10 +264,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     return getClass().getSimpleName() + "(maxLevels:" + maxLevels + ",ctx:" + ctx + " ,NumberOfSubCells:" + subCells.toString() + ")";
   }
 
-  /**
-   * Cell here store the term without the leaf, so at any point we can remove
-   * cellLevel and instead use term.length
-   */
   private class FlexCell implements Cell {
 
     protected final CellStack cellStack;
@@ -259,7 +271,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     private final FlexPrefixTreeIterator cellIterator;
     private final Rectangle gridRectangle;
     private boolean isLeaf;
-    private boolean isShapeSet = false;
+    private boolean isShapeSet = false; //Cache for shape reuse
     private SpatialRelation shapeRel;
 
     private int xMin;
@@ -358,10 +370,12 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       double yMax = ((yMin + gridSizes[token.length]) * intToDouble) + newOriginY;
       double xMin = (this.xMin * intToDouble) + newOriginX;
       double yMin = (this.yMin * intToDouble) + newOriginY;
+      // Adjacent cells do not have an overlapping edge. The implementation nudges the
+      // top and right edges of a cell. But, when the world bounds are reached, this must
+      // not be done.
       if (xMax < bounds.getMaxX()) {
         xMax = Math.nextAfter(xMax, Double.NEGATIVE_INFINITY);
       }
-
       if (yMax < bounds.getMaxY()) {
         yMax = Math.nextAfter(yMax, Double.NEGATIVE_INFINITY);
       }
@@ -423,6 +437,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return SpatialRelation.INTERSECTS;
     }
 
+    /**
+     * Integer based spatial relation
+     *
+     * @return
+     */
     protected SpatialRelation relateIntegerRectangle() {
       int xMax = this.xMin + gridSizes[this.cellLevel];
       if (xMax < FlexPrefixTree2D.this.xMax) {
@@ -540,12 +559,11 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
       return rel;
     }
 
-
     private void stopLevelIteration() {
       nextCellNumber = endCellNumber + 1;
     }
 
-    //Populates into scratch the next cell in z-order TODO Hilbert ordering
+    //Populates into scratch the next cell in z-order
     private boolean levelHasUntraversedCell() {
       if (nextCellNumber > endCellNumber) {
         nextCell = null;
@@ -562,6 +580,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
   /**
    * A stack of flexCells with the following characteristics
+   * - Cells are reused per level in a CellStack
    * - Lazy decoding of cells
    * - Cells from the same CellStack share BytesRef
    */
@@ -571,7 +590,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
     protected int lastDecodedLevel = 0;
     protected BytesRef term;
 
-    //ShapeFilter bounding box and calculations
+    //ShapeFilter bounding box
     private int shapeFilterXMin;
     private int shapeFilterXMax;
     private int shapeFilterYMin;
@@ -595,7 +614,6 @@ public class FlexPrefixTree2D extends SpatialPrefixTree{
 
     private void findIntegerBoundingBox(Shape shapeFilter) {
       if (shapeFilter != null && this.shapeFilter != shapeFilter) { // object equivalence?
-        //TODO this remains same for a given FPT and given shape
         shapeFilterBoundingBox = shapeFilter.getBoundingBox();
         this.shapeFilterXMax = (int) ((shapeFilterBoundingBox.getMaxX() - bounds.getMinX()) * doubleToInt);
         this.shapeFilterXMin = (int) ((shapeFilterBoundingBox.getMinX() - bounds.getMinX()) * doubleToInt);
