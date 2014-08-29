@@ -49,7 +49,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   //TODO plug in others and test them
   private SpatialContext ctx;
   private SpatialPrefixTree trie;
-  final int ITERATIONS = 10;
+  final int ITERATIONS = 1;
 
   @Override
   @Before
@@ -124,13 +124,18 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
   @Repeat(iterations = ITERATIONS)
   public void testRandomCellRelationship() {
 
-    int maxLevels = randomIntBetween(3, 20);
+    int maxLevels = randomIntBetween(3, 7);
+    int numberOfCellsPerLevel[] = new int[maxLevels];
+    for(int i =0;i<maxLevels;++i) {
+      numberOfCellsPerLevel[i] = randomIntBetween(1,4);
+    }
     SpatialContextFactory ctxFactory = new SpatialContextFactory();
     ctxFactory.geo = false;
     ctxFactory.worldBounds = ctx.getWorldBounds();
     SpatialContext ctx = ctxFactory.newSpatialContext();
     assert ctx != null;
-    trie = new FlexPrefixTree2D(ctx, maxLevels);
+    trie = new FlexPrefixTree2D(ctx, ctx.getWorldBounds(), maxLevels, numberOfCellsPerLevel);
+    System.out.println(trie);
     Rectangle WB = ctx.getWorldBounds();
     Point p = ctx.makePoint(randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()), randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
     //Get the world Cell
