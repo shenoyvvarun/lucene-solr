@@ -134,7 +134,7 @@ public class SpatialPrefixTreeTest extends SpatialTestCase {
     ctxFactory.worldBounds = ctx.getWorldBounds();
     SpatialContext ctx = ctxFactory.newSpatialContext();
     assert ctx != null;
-    trie = new FlexPrefixTree2D(ctx, ctx.getWorldBounds(), maxLevels, numberOfCellsPerLevel);
+    trie = new FlexPrefixTree2D(ctx, ctx.getWorldBounds(), maxLevels, numberOfCellsPerLevel,true);
     System.out.println(trie);
     Rectangle WB = ctx.getWorldBounds();
     Point p = ctx.makePoint(randomIntBetween((int) WB.getMinX(), (int) WB.getMaxX()), randomIntBetween((int) WB.getMinY(), (int) WB.getMaxY()));
