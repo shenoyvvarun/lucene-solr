@@ -523,21 +523,20 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       thisCell = null;
       if (nextCell != null)//calling hasNext twice in a row
         return true;
+
       while (levelHasUntraversedCell()) {
         SpatialRelation rel = null;
         nextCell = cell;
         if (shapeFilter == null) {
           return true;
-        } else if(shapeFilter instanceof Point) { //Direct encode for points
+        } else if (shapeFilter instanceof Point) {
           FlexCell nextFlexCell = (FlexCell) nextCell;
-          this.cell.cellStack.term.length = this.cell.cellLevel;
-          byte temp=nextFlexCell.cellStack.directDecodePoint(nextFlexCell,nextCellNumber-1,endCellNumber);
-          changeTailByte(temp);
-          cell.reuse();
+          nextFlexCell.cellStack.directDecodePoint(nextFlexCell,nextCellNumber-1);
           nextFlexCell.setShapeRel(SpatialRelation.CONTAINS);
           stopLevelIteration();
           return true;
-        } else {
+        }
+        else {
           FlexCell nextFlexCell = (FlexCell) nextCell;
           nextFlexCell.cellStack.decode(nextFlexCell.cellLevel);
           rel = getSpatialRelation(nextFlexCell);
@@ -633,33 +632,32 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
 
     }
 
-    protected byte directDecodePoint(FlexCell nextFlexCell,int start, int end) {
-      if(nextFlexCell.cellLevel>0) {
-        nextFlexCell.cellStack.decode(nextFlexCell.cellLevel-1);
-      }
-      //start from the parent cell and decode until you get the required precision
+    protected void directDecodePoint(FlexCell nextFlexCell,int start) {
+      //Cell at level 0 is always decoded
+      //Start from that cell and populate appropriate
+      //coordinates
+      decode(nextFlexCell.cellLevel-1);
       int precision = FlexPrefixTree2D.this.numberOfSubCellsAsExponentOfFour[nextFlexCell.cellLevel-1];
-      Rectangle cell = (Rectangle)nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].getShape();// Get parent shape
-      int parentXMin = shapeFilterXMin;
-      int parentYMin = shapeFilterYMin;
-      int parentXMax = shapeFilterXMax;
-      int parentYMax = shapeFilterYMax;
+      int parentXMin = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].xMin;
+      int parentXMax = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].xMin + FlexPrefixTree2D.this.gridSizes[nextFlexCell.cellLevel-1];
+      int parentYMin = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].yMin;
+      int parentYMax = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].yMin + FlexPrefixTree2D.this.gridSizes[nextFlexCell.cellLevel-1];
       int cellNumber=0;
       while(precision>0){
         int ch=0,shifts=1;
         int xMid = (parentXMin + parentXMax)/2;
-        if(xMid <= shapeFilter.getBoundingBox().getMinX()){
+        if(xMid >= shapeFilterXMin){
+          parentXMax = xMid;
+        }else{
           ch = ch | 2; // 2nd column
           shifts = 2;
           parentXMin = xMid;
-        }else{
-          parentXMax = xMid;
         }
         int yMid = (parentYMin + parentYMax)/2;
-        if(yMid <= shapeFilter.getBoundingBox().getMinY()){
-          ch = ch | 1; // 1st row
+        if(yMid >= shapeFilterYMin){
           parentYMin = yMid;
         }else{
+          ch = ch | 1; // 1st row
           parentYMax = yMid;
         }
         cellNumber = (cellNumber<<shifts) | ch;
@@ -671,7 +669,7 @@ public class FlexPrefixTree2D extends SpatialPrefixTree {
       int cellXmin = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].xMin + gridSizes[nextFlexCell.cellLevel] * col;
       int cellYmin = nextFlexCell.cellStack.cells[nextFlexCell.cellLevel-1].yMin + gridSizes[nextFlexCell.cellLevel] * row;
       nextFlexCell.setMinCornerCoordinates(cellXmin,cellYmin);
-      return (byte)(cellNumber+start);
+      nextFlexCell.cellStack.term.bytes[nextFlexCell.cellLevel] = (byte)(cellNumber+start);
     }
 
     protected void decode(int cellLevel) {
